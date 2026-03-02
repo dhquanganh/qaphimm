@@ -48,6 +48,10 @@ Logic xử lý nằm trong `controllers/homeController.js`.
    ```
 4. Mở trình duyệt tới `http://localhost:3000`.
 
+## Demo
+
+Bạn có thể truy cập bản demo trực tuyến tại: https://qaphimm.vercel.app/
+
 ## Phát triển thêm
 
 - Thêm model, controller, route theo cấu trúc MVC.

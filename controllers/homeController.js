@@ -24,6 +24,13 @@ class HomeController {
         res.render('author');
     }
 
+    animeSeries(req, res) {
+        res.render('AnimeSeries');
+    }
+
+    animeMovie(req, res) {
+        res.render('AnimeMovie');
+    }
 };
 
 module.exports = new HomeController;

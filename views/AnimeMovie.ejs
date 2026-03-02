@@ -1,0 +1,85 @@
+<section class="container movie-list-section">
+    <div class="list-header">
+        <h2 id="list-title">Khám Phá Phim</h2>
+        <div class="filter-tabs">
+            <button class="tab-btn active" onclick="changeCategory('now_playing', this)">Mới Nhất</button>
+            <button class="tab-btn" onclick="changeCategory('vote_count.desc', this)">Đánh giá cao</button>
+        </div>
+    </div>
+
+    <div class="movie-grid" id="movie-list-grid">
+    </div>
+
+    <div class="load-more">
+        <button id="btn-load-more">Xem Thêm</button>
+    </div>
+</section>
+
+<script>
+    const API_KEY = '17409b8620a1b64c8f444a06b2788a41';
+    const BASE_URL = 'https://api.themoviedb.org/3';
+    const IMG_URL = 'https://image.tmdb.org/t/p/w500';
+
+    let currentPage = 1;
+    let currentCategory = 'popular';
+
+    const movieGrid = document.getElementById('movie-list-grid');
+    const loadMoreBtn = document.getElementById('btn-load-more');
+
+    // 1. Hàm lấy dữ liệu
+    async function fetchMovies(category, page = 1) {
+        const url = `${BASE_URL}/discover/movie?api_key=${API_KEY}&with_genres=16&with_original_language=ja&sort_by=${category}&language=vi-VN&page=${page}`;
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+            displayMovies(data.results, page === 1);
+        } catch (error) {
+            console.error("Lỗi:", error);
+        }
+    }
+
+    // 2. Hàm hiển thị phim
+    function displayMovies(movies, isNewCategory) {
+        if (isNewCategory) movieGrid.innerHTML = ''; // Xóa hết nếu đổi tab
+
+        movies.forEach(movie => {
+            const card = document.createElement('div');
+            card.className = 'movie-card';
+            card.onclick = () => window.location.href = `/movie/${movie.title}?id=${movie.id}&type=movie`;
+
+            card.innerHTML = `
+            <div class="rating-badge"><i class="fas fa-star"></i> ${movie.vote_average.toFixed(1)}</div>
+            <img src="${movie.poster_path ? IMG_URL + movie.poster_path : 'placeholder.jpg'}" alt="${movie.title}">
+            <div class="movie-card-info">
+                <h4>${movie.title}</h4>
+                <div class="meta">
+                    <span>${movie.release_date ? movie.release_date.split('-')[0] : 'N/A'}</span>
+                    <span>Phim lẻ</span>
+                </div>
+            </div>
+        `;
+            movieGrid.appendChild(card);
+        });
+    }
+
+    // 3. Hàm đổi danh mục
+    function changeCategory(category, element) {
+        currentCategory = category;
+        currentPage = 1;
+
+        // Đổi màu nút active
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        element.classList.add('active');
+
+        fetchMovies(currentCategory, currentPage);
+    }
+
+    // 4. Sự kiện Load More
+    loadMoreBtn.addEventListener('click', () => {
+        currentPage++;
+        fetchMovies(currentCategory, currentPage);
+    });
+
+    // Khởi tạo lần đầu
+    fetchMovies('popular');
+</script>

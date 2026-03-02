@@ -26,7 +26,9 @@
     const endpoints = {
             trending: `${BASE_URL}/trending/movie/day?api_key=${API_KEY}&language=vi-VN`,
             topRated: `${BASE_URL}/movie/top_rated?api_key=${API_KEY}&language=vi-VN`,
-            newest: `${BASE_URL}/movie/now_playing?api_key=${API_KEY}&language=vi-VN`
+            newest: `${BASE_URL}/movie/now_playing?api_key=${API_KEY}&language=vi-VN`,
+            newAnimeTV: `${BASE_URL}/discover/tv?api_key=${API_KEY}&with_genres=16&with_original_language=ja&sort_by=popularity.desc&language=vi-VN`,
+            newAnimeMovie: `${BASE_URL}/discover/movie?api_key=${API_KEY}&with_genres=16&with_original_language=ja&sort_by=popularity.desc&language=vi-VN`,
     };
 
     // Hàm lấy dữ liệu và hiển thị
@@ -45,10 +47,10 @@
 
                 // Cấu trúc card phim
                 movieEl.innerHTML = `
-                <a style="text-decoration: none; color: white;" href="movie/${movie.title}?id=${movie.id}">
-                    <img src="${IMG_URL + movie.poster_path}" alt="${movie.title}">
+                <a style="text-decoration: none; color: white;" href="movie/${movie.title || movie.name}?id=${movie.id}&type=${movie.title ? 'movie' : 'tv'}">
+                    <img src="${IMG_URL + movie.poster_path}" alt="${movie.title || movie.name}">
                 <div class="card-info">
-                    <p class="movie-title">${movie.title}</p>
+                    <p class="movie-title">${movie.title || movie.name}</p>
                     <span class="rating">⭐ ${movie.vote_average.toFixed(1)}</span>
                 </div>
             `;
@@ -77,13 +79,13 @@
                 const slide = document.createElement('div');
                 slide.className = `slide ${index === 0 ? 'active' : ''}`;
                 slide.style.backgroundImage = `url('https://image.tmdb.org/t/p/original${movie.backdrop_path}')`;
-
+                
                 slide.innerHTML = `
                     <div class="hero-content">
-                        <h1>${movie.title}</h1>
+                        <h1>${movie.title || movie.name}</h1>
                         <p>${movie.overview.substring(0, 180)}...</p>
                         <div class="hero-buttons">
-                            <a style="text-decoration: none;" href="movie/${movie.title}?id=${movie.id}">
+                            <a style="text-decoration: none;" href="movie/${movie.title || movie.name}?id=${movie.id}">
                                 <button class="btn-play"><i class="fas fa-play"></i> Xem ngay</button>
                             </a>
                             <button class="btn-info"><i class="fas fa-plus"></i> Danh sách</button>
@@ -137,5 +139,7 @@
         fetchMovies(endpoints.trending, 'trending-grid');
         fetchMovies(endpoints.topRated, 'top-rated-grid');
         fetchMovies(endpoints.newest, 'newest-grid');
+        fetchMovies(endpoints.newAnimeTV, 'anime-tv-grid');
+        fetchMovies(endpoints.newAnimeMovie, 'anime-movie-grid');
     });
 </script>
