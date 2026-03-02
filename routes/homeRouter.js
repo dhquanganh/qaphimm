@@ -6,6 +6,7 @@ router.get("/movie/:id", homeController.movieShow);
 router.get("/search", homeController.movieSearch);
 router.get("/movie-list", homeController.movieList);
 router.get("/tv-series", homeController.tvSeries);
+router.get("/about", homeController.aboutPage);
 router.get('/', homeController.homeIndex);
 
 module.exports = router;
