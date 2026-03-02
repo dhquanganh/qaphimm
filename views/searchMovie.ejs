@@ -1,0 +1,154 @@
+<div class="search-container-center">
+    <div class="search-box">
+        <input type="text" id="search-input" placeholder="Tìm kiếm phim..." aria-label="Search">
+        <button id="search-btn"><i class="fas fa-search"></i></button>
+
+        <div class="search-dropdown" id="search-dropdown"></div>
+    </div>
+</div>
+
+<script>
+    const API_KEY = '17409b8620a1b64c8f444a06b2788a41'; // Thay bằng API Key của bạn
+    const BASE_URL = 'https://api.themoviedb.org/3';
+    const IMG_URL = 'https://image.tmdb.org/t/p/w500';
+
+    const searchBtn = document.getElementById('search-btn');
+    const searchInput = document.getElementById('search-input');
+    const resultsGrid = document.getElementById('search-results-grid');
+    const dropdown = document.getElementById('search-dropdown');
+    let debounceTimer;
+
+    // --- SỰ KIỆN: CLICK NÚT ---
+    searchBtn.addEventListener('click', performSearch);
+
+    // --- SỰ KIỆN: BẤM ENTER ---
+    searchInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            performSearch();
+        }
+    });
+
+    // --- SỰ KIỆN: GÕ PHÍM (DROPDOWN) ---
+    searchInput.addEventListener('input', function () {
+        clearTimeout(debounceTimer);
+        const query = this.value;
+
+        if (query.length < 2) { 
+            dropdown.style.display = 'none';
+            return;
+        }
+
+        debounceTimer = setTimeout(() => {
+            fetchSearchSuggestions(query);
+        }, 500);
+    });
+
+    // Ẩn dropdown khi click ra ngoài
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('.search-box')) {
+            dropdown.style.display = 'none';
+        }
+    });
+
+    // --- HÀM TÌM KIẾM CHÍNH (GRID) ---
+    async function performSearch() {
+        const query = searchInput.value;
+        if (!query) return;
+
+        // Ẩn dropdown khi thực hiện tìm kiếm chính
+        dropdown.style.display = 'none';
+
+        // Sử dụng multi-search để tìm cả phim lẻ và TV show
+        const searchUrl = `${BASE_URL}/search/multi?api_key=${API_KEY}&language=vi-VN&query=${encodeURIComponent(query)}`;
+
+        try {
+            const response = await fetch(searchUrl);
+            const data = await response.json();
+
+            // Lọc bỏ kết quả là 'person' nếu không muốn hiển thị diễn viên
+            const filteredResults = data.results.filter(item => item.media_type !== 'person');
+            
+            // Sắp xếp theo độ phổ biến
+            filteredResults.sort((a, b) => b.popularity - a.popularity);
+
+            renderResults(filteredResults);
+        } catch (error) {
+            console.error('Lỗi tìm kiếm:', error);
+            resultsGrid.innerHTML = '<p>Đã xảy ra lỗi khi tìm kiếm.</p>';
+        }
+    }
+
+    // --- HÀM RENDER KẾT QUẢ (GRID) ---
+    function renderResults(results) {
+        resultsGrid.innerHTML = ''; 
+
+        if (results.length === 0) {
+            resultsGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">Không tìm thấy kết quả nào.</p>';
+            return;
+        }
+
+        results.forEach(item => {
+            // Xử lý tiêu đề (Movie: title, TV: name)
+            const title = item.title || item.name; 
+            
+            // Xác định loại (media_type trả về từ multi-search)
+            const type = item.media_type;
+            
+            const movieCard = document.createElement('div');
+            movieCard.classList.add('movie-card');
+            
+            // Link chuyển trang bao gồm type
+            movieCard.onclick = () => {
+                window.location.href = `/movie/${item.title}?id=${item.id}&type=${type}`;
+            };
+
+            movieCard.innerHTML = `
+                <img src="${item.poster_path ? IMG_URL + item.poster_path : 'placeholder.jpg'}" alt="${title}">
+                <h4>${title}</h4>
+                <p>${type === 'movie' ? 'Phim lẻ' : 'Phim bộ'}</p>
+            `;
+            resultsGrid.appendChild(movieCard);
+        });
+    }
+
+    // --- HÀM GỌI DỮ LIỆU DROPDOWN ---
+    async function fetchSearchSuggestions(query) {
+        const searchUrl = `${BASE_URL}/search/multi?api_key=${API_KEY}&language=vi-VN&query=${encodeURIComponent(query)}`;
+
+        try {
+            const response = await fetch(searchUrl);
+            const data = await response.json();
+            // Lọc người và lấy 5 kết quả đầu
+            const filtered = data.results.filter(item => item.media_type !== 'person').slice(0, 5);
+            renderDropdown(filtered);
+        } catch (error) {
+            console.error('Lỗi search dropdown:', error);
+        }
+    }
+
+    // --- HÀM RENDER DROPDOWN ---
+    function renderDropdown(items) {
+        if (items.length === 0) {
+            dropdown.style.display = 'none';
+            return;
+        }
+
+        dropdown.innerHTML = items.map(item => {
+            const title = item.title || item.name;
+            const type = item.media_type;
+            const year = item.release_date ? item.release_date.split('-')[0] : (item.first_air_date ? item.first_air_date.split('-')[0] : 'N/A');
+
+            return `
+                <div class="dropdown-item" onclick="window.location.href='/movie/${item.title}?id=${item.id}&type=${type}'">
+                    <img src="${item.poster_path ? IMG_URL + item.poster_path : 'placeholder.jpg'}" alt="${title}">
+                    <div class="dropdown-item-info">
+                        <h4>${title}</h4>
+                        <p>${year} - ${type === 'movie' ? 'Phim lẻ' : 'Phim bộ'}</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        dropdown.style.display = 'block';
+    }
+</script>

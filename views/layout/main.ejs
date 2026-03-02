@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trộm Phim</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body>
+    <%- include("../partials/header") %>
+    <%- body %>
+    <%- include("../partials/footer") %>
+</body>
+
+</html>
+
+<script>
+    const API_KEY = '17409b8620a1b64c8f444a06b2788a41'; // Thay bằng API Key của bạn
+    const BASE_URL = 'https://api.themoviedb.org/3';
+    const IMG_URL = 'https://image.tmdb.org/t/p/w500';
+
+    // Các endpoint (đường dẫn lấy dữ liệu)
+    const endpoints = {
+            trending: `${BASE_URL}/trending/movie/day?api_key=${API_KEY}&language=vi-VN`,
+            topRated: `${BASE_URL}/movie/top_rated?api_key=${API_KEY}&language=vi-VN`,
+            newest: `${BASE_URL}/movie/now_playing?api_key=${API_KEY}&language=vi-VN`
+    };
+
+    // Hàm lấy dữ liệu và hiển thị
+    async function fetchMovies(url, containerId) {
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            const movies = data.results;
+
+            const container = document.getElementById(containerId);
+            container.innerHTML = ''; // Xóa trạng thái loading
+
+            movies.slice(0, 18).forEach(movie => {
+                const movieEl = document.createElement('div');
+                movieEl.classList.add('movie-card');
+
+                // Cấu trúc card phim
+                movieEl.innerHTML = `
+                <a style="text-decoration: none; color: white;" href="movie/${movie.title}?id=${movie.id}">
+                    <img src="${IMG_URL + movie.poster_path}" alt="${movie.title}">
+                <div class="card-info">
+                    <p class="movie-title">${movie.title}</p>
+                    <span class="rating">⭐ ${movie.vote_average.toFixed(1)}</span>
+                </div>
+            `;
+                container.appendChild(movieEl);
+            });
+        } catch (error) {
+            console.error('Lỗi khi lấy dữ liệu:', error);
+        }
+    }
+    let currentSlide = 0;
+    let slides = [];
+
+    async function initHeroSlider() {
+        const NOW_PLAYING_URL = `${BASE_URL}/movie/now_playing?api_key=${API_KEY}&language=vi-VN`;
+
+        try {
+            const response = await fetch(NOW_PLAYING_URL);
+            const data = await response.json();
+            const movies = data.results.slice(0, 10); // Lấy 5 phim đầu tiên
+
+            const wrapper = document.getElementById('slider-wrapper');
+            const dotsContainer = document.getElementById('slider-dots');
+            wrapper.innerHTML = '';
+
+            movies.forEach((movie, index) => {
+                const slide = document.createElement('div');
+                slide.className = `slide ${index === 0 ? 'active' : ''}`;
+                slide.style.backgroundImage = `url('https://image.tmdb.org/t/p/original${movie.backdrop_path}')`;
+
+                slide.innerHTML = `
+                    <div class="hero-content">
+                        <h1>${movie.title}</h1>
+                        <p>${movie.overview.substring(0, 180)}...</p>
+                        <div class="hero-buttons">
+                            <a style="text-decoration: none;" href="movie/${movie.title}?id=${movie.id}">
+                                <button class="btn-play"><i class="fas fa-play"></i> Xem ngay</button>
+                            </a>
+                            <button class="btn-info"><i class="fas fa-plus"></i> Danh sách</button>
+                        </div>
+                    </div>
+            `;
+                wrapper.appendChild(slide);
+
+                // Tạo Dot
+                const dot = document.createElement('div');
+                dot.className = `dot ${index === 0 ? 'active' : ''}`;
+                dot.onclick = () => goToSlide(index);
+                dotsContainer.appendChild(dot);
+            });
+
+            slides = document.querySelectorAll('.slide');
+            setupAutoSlide();
+
+        } catch (error) {
+            console.error("Lỗi slider:", error);
+        }
+    }
+
+    function changeSlide(direction) {
+        slides[currentSlide].classList.remove('active');
+        document.querySelectorAll('.dot')[currentSlide].classList.remove('active');
+
+        currentSlide = (currentSlide + direction + slides.length) % slides.length;
+
+        slides[currentSlide].classList.add('active');
+        document.querySelectorAll('.dot')[currentSlide].classList.add('active');
+    }
+
+    function goToSlide(index) {
+        slides[currentSlide].classList.remove('active');
+        document.querySelectorAll('.dot')[currentSlide].classList.remove('active');
+        currentSlide = index;
+        slides[currentSlide].classList.add('active');
+        document.querySelectorAll('.dot')[currentSlide].classList.add('active');
+    }
+
+    function setupAutoSlide() {
+        setInterval(() => changeSlide(1), 5000); // Tự động lật sau 5 giây
+    }
+
+    // Gọi hàm khởi tạo
+    initHeroSlider();
+
+    // Gọi hàm khi trang web tải xong
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchMovies(endpoints.trending, 'trending-grid');
+        fetchMovies(endpoints.topRated, 'top-rated-grid');
+        fetchMovies(endpoints.newest, 'newest-grid');
+    });
+</script>

@@ -1,0 +1,299 @@
+<main>
+    <div id="embed-container" style="display: none;">
+        <div class="player-wrapper">
+            <iframe id="movie-player" frameborder="0" allowfullscreen></iframe>
+        </div>
+        <button class="btn-close-player" onclick="closePlayer()">Đóng</button>
+    </div>
+
+    <section class="movie-hero" id="movie-hero">
+        <div class="hero-overlay" id="hero-overlay">
+            <div class="hero-info-center">
+                <h1 id="det-title">Tên Phim</h1>
+                <p id="det-tagline" class="tagline"></p>
+                <div class="hero-actions">
+                    <button class="btn-play-now" id="btn-play-now"><i class="fas fa-play"></i> Play Now</button>
+                    <div class="action-icons">
+                        <button><i class="fas fa-plus"></i></button>
+                        <button><i class="fas fa-thumbs-up"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="container detail-content">
+        <div class="col-left">
+            <div class="card-section">
+                <h2 id="det-title-body">Tên Phim</h2>
+                <h3>Description</h3>
+                <p id="det-description"></p>
+            </div>
+
+            <div class="card-section" id="episodes-section" style="display: none;">
+                <div class="section-header">
+                    <h3>Episodes / Seasons</h3>
+                    <div class="season-selector">
+                        <select id="season-select"></select>
+                    </div>
+                </div>
+                <div class="episodes-grid" id="episodes-list"></div>
+            </div>
+
+            <div class="card-section">
+                <div class="section-header">
+                    <h3>Cast</h3>
+                </div>
+                <div class="cast-grid" id="cast-list"></div>
+            </div>
+
+            <div class="card-section">
+                <div class="section-header">
+                    <h3>Photos</h3>
+                </div>
+                <div class="photo-grid" id="photo-list">
+                </div>
+            </div>
+
+            <div id="photo-modal" class="modal" onclick="this.style.display='none'">
+                <span class="close">&times;</span>
+                <img class="modal-content" id="full-photo">
+            </div>
+            <div class="card-section">
+                <div class="section-header">
+                    <h3>Reviews</h3>
+                </div>
+                <div class="reviews-container" id="reviews-list"></div>
+            </div>
+        </div>
+
+        <div class="col-right">
+            <div class="info-sidebar">
+                <div class="info-item">
+                    <label><i class="far fa-clock"></i> Duration</label>
+                    <p id="det-runtime">--</p>
+                </div>
+                <div class="info-item">
+                    <label><i class="far fa-calendar"></i> Year</label>
+                    <p id="det-year"></p>
+                </div>
+                <div class="info-item">
+                    <label><i class="fas fa-language"></i> Language</label>
+                    <p id="det-languages"></p>
+                </div>
+                <div class="info-item">
+                    <label><i class="far fa-star"></i> Rating</label>
+                    <div class="rating-box" id="imdb-rating"></div>
+                </div>
+                <div class="info-item">
+                    <label><i class="fas fa-th-large"></i> Genres</label>
+                    <div class="tags" id="det-genres"></div>
+                </div>
+                <div class="info-item">
+                    <label>Director</label>
+                    <p id="det-director"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    const API_KEY = '17409b8620a1b64c8f444a06b2788a41';
+    const BASE_URL = 'https://api.themoviedb.org/3';
+    const IMG_URL = 'https://image.tmdb.org/t/p/original';
+
+    // 1. Lấy tham số từ URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const movieId = urlParams.get('id');
+    const mediaType = urlParams.get('type') || 'movie'; // 'movie' hoặc 'tv'
+
+    if (!movieId) {
+        window.location.href = '/';
+    }
+
+    // 2. Gọi API chi tiết
+    async function fetchMovieDetails() {
+        const detailUrl = `${BASE_URL}/${mediaType}/${movieId}?api_key=${API_KEY}&language=vi-VN&append_to_response=credits,reviews,images&include_image_language=en,vi,null`;;
+
+        try {
+            const response = await fetch(detailUrl);
+            const data = await response.json();
+            renderMovieDetails(data);
+            renderPhotos(data.images.backdrops);
+        } catch (error) {
+            console.error('Lỗi lấy chi tiết:', error);
+        }
+    }
+
+    // 3. Render dữ liệu
+    function renderMovieDetails(movie) {
+        // Xử lý tiêu đề và năm (tương thích Movie/TV)
+        const title = movie.title || movie.name;
+        const year = movie.release_date ? movie.release_date.split('-')[0] : (movie.first_air_date ? movie.first_air_date.split('-')[0] : 'N/A');
+
+        // Banner và tiêu đề chính
+        document.getElementById('movie-hero').style.backgroundImage = `url(${IMG_URL}${movie.backdrop_path})`;
+        document.getElementById('det-title').innerText = title;
+        switch (movie.id) {
+            case 844386:
+                document.getElementById('det-title').innerText = title + " (Phim Như Buồi)";
+                break;
+        }
+        document.getElementById('det-tagline').innerText = movie.tagline || '';
+        document.getElementById('det-title-body').innerText = title; // Tên phim trên description
+
+        // Mô tả và Meta
+        document.getElementById('det-description').innerText = movie.overview || 'Không có mô tả.';
+        document.getElementById('det-year').innerText = year;
+        document.getElementById('det-languages').innerText = movie.original_language.toUpperCase();
+        const runtimeElement = document.getElementById('det-runtime');
+
+        if (mediaType === 'movie') {
+            // Phim lẻ: runtime tính bằng phút
+            runtimeElement.innerText = movie.runtime ? `${movie.runtime} phút` : 'N/A';
+        } else {
+            // Phim bộ: runtime thường là mảng các thời lượng tập phim (ví dụ: [45])
+            if (movie.episode_run_time && movie.episode_run_time.length > 0) {
+                runtimeElement.innerText = `${movie.episode_run_time[0]} phút/tập`;
+            } else {
+                runtimeElement.innerText = 'N/A';
+            }
+        }
+        // Thể loại
+        if (movie.genres) {
+            document.getElementById('det-genres').innerHTML = movie.genres.map(g => `<span>${g.name}</span>`).join('');
+        }
+
+        // Ratings
+        document.getElementById('imdb-rating').innerHTML = `<i class="fas fa-star" style="color:yellow;"></i> ${movie.vote_average.toFixed(1)} / 10`;
+
+        // Cast
+        const castContainer = document.getElementById('cast-list');
+        if (movie.credits && movie.credits.cast) {
+            castContainer.innerHTML = movie.credits.cast.slice(0, 6).map(actor => `
+                <div class="cast-item">
+                    <img src="${actor.profile_path ? 'https://image.tmdb.org/t/p/w200' + actor.profile_path : 'https://via.placeholder.com/100x150'}" alt="${actor.name}">
+                    <p>${actor.name}</p>
+                </div>
+            `).join('');
+        }
+
+        // Director
+        if (movie.credits && movie.credits.crew) {
+            const director = movie.credits.crew.find(person => person.job === 'Director');
+            document.getElementById('det-director').innerText = director ? director.name : 'Không rõ';
+        }
+
+        // --- CHECK IF TV SHOW ---
+        if (mediaType === 'tv') {
+            renderSeasons(movie);
+        } else {
+            document.getElementById('episodes-section').style.display = 'none';
+        }
+    }
+
+    // 4. Render Seasons/Episodes
+    function renderSeasons(movie) {
+        const section = document.getElementById('episodes-section');
+        const seasonSelect = document.getElementById('season-select');
+        section.style.display = 'block';
+
+        seasonSelect.innerHTML = movie.seasons.map(season =>
+            `<option value="${season.season_number}">Season ${season.season_number}</option>`
+        ).join('');
+
+        seasonSelect.addEventListener('change', (e) => {
+            fetchEpisodes(movie.id, e.target.value);
+        });
+
+        fetchEpisodes(movie.id, 1);
+    }
+
+    async function fetchEpisodes(tvId, seasonNumber) {
+        const url = `${BASE_URL}/tv/${tvId}/season/${seasonNumber}?api_key=${API_KEY}&language=vi-VN`;
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+            renderEpisodes(data.episodes);
+        } catch (error) {
+            console.error('Lỗi lấy tập:', error);
+        }
+    }
+
+    function renderEpisodes(episodes) {
+        const container = document.getElementById('episodes-list');
+        container.innerHTML = episodes.map(ep => `
+            <div class="episode-card" onclick="playEpisode(${ep.episode_number}, ${ep.season_number})">
+                <img src="${ep.still_path ? 'https://image.tmdb.org/t/p/w300' + ep.still_path : 'placeholder.jpg'}" alt="${ep.name}">
+                <div class="episode-card-info">
+                    <p>Tập ${ep.episode_number}: ${ep.name}</p>
+                    <span>${ep.runtime || '--'} phút</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // 5. Player Logic
+    const playButton = document.getElementById('btn-play-now');
+    const embedContainer = document.getElementById('embed-container');
+    const heroOverlay = document.getElementById('hero-overlay');
+    const moviePlayer = document.getElementById('movie-player');
+
+    playButton.addEventListener('click', function () {
+        if (mediaType === 'movie') {
+            playMovie();
+        } else {
+            // Nếu là TV Show, load tập 1
+            playEpisode(1, 1);
+        }
+    });
+
+    function playMovie() {
+        heroOverlay.style.display = 'none';
+        embedContainer.style.display = 'block';
+        moviePlayer.src = `https://vidsrc.xyz/embed/movie?tmdb=${movieId}`;
+    }
+
+    function playEpisode(epNum, seasonNum) {
+        heroOverlay.style.display = 'none';
+        embedContainer.style.display = 'block';
+        window.scrollTo({
+            top: 0, // Cách đỉnh 50px
+            behavior: 'smooth'
+        });
+        moviePlayer.src = `https://vidsrc.xyz/embed/tv?tmdb=${movieId}&season=${seasonNum}&episode=${epNum}`;
+    }
+
+    function closePlayer() {
+        embedContainer.style.display = 'none';
+        heroOverlay.style.display = 'block';
+        moviePlayer.src = ''; // Dừng video
+    }
+
+    fetchMovieDetails();
+
+    function renderPhotos(backdrops) {
+        const photoContainer = document.getElementById('photo-list');
+        const limitedPhotos = backdrops.slice(0, 910);
+
+        if (limitedPhotos.length === 0) {
+            photoContainer.innerHTML = '<p style="color:#ccc;">Không có hình ảnh nào.</p>';
+            return;
+        }
+
+        photoContainer.innerHTML = limitedPhotos.map(img => `
+        <div class="photo-item" onclick="openFullPhoto('${IMG_URL}${img.file_path}')">
+            <img src="https://image.tmdb.org/t/p/w500${img.file_path}" alt="Movie Photo" loading="lazy">
+        </div>
+    `).join('');
+    }
+
+    // Hàm mở ảnh to
+    function openFullPhoto(src) {
+        const modal = document.getElementById('photo-modal');
+        const modalImg = document.getElementById('full-photo');
+        modal.style.display = "flex";
+        modalImg.src = src;
+    }
+</script>
