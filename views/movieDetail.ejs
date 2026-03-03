@@ -1,9 +1,8 @@
 <main>
     <div id="embed-container" style="display: none;">
         <div class="player-wrapper">
-            <iframe id="movie-player" frameborder="0" allowfullscreen></iframe>
+            <div id="artplayer-container" style="width: 100%; height: 100%;"></div>
         </div>
-        <button class="btn-close-player" onclick="closePlayer()">Đóng</button>
     </div>
 
     <section class="movie-hero" id="movie-hero">
@@ -235,6 +234,66 @@
     }
 
     // 5. Player Logic
+    let art; // Biến toàn cục cho ArtPlayer
+    const CONSUMET_URL = 'https://api.consumet.org/meta/tmdb';
+
+    // --- HÀM CHÍNH: LẤY LINK TỪ CONSUMET ---
+    async function getStreamFromConsumet(id, type, s = 1, e = 1) {
+        try {
+            // Bước 1: Lấy ID nội bộ của Consumet từ TMDB ID
+            const info = await fetch(`${CONSUMET_URL}/info/${id}?type=${type}`).then(res => res.json());
+
+            let episodeId;
+            if (type === 'tv') {
+                const target = info.episodes.find(ep => ep.season === parseInt(s) && ep.number === parseInt(e));
+                episodeId = target ? target.id : info.episodes[0].id;
+            } else {
+                episodeId = info.episodes[0].id;
+            }
+            console.log("ID Consumet:", episodeId);
+            // Bước 2: Lấy link stream (.m3u8)
+            const sources = await fetch(`${CONSUMET_URL}/watch/${episodeId}?id=${id}`).then(res => res.json());
+
+            // Trả về link 'auto' hoặc link đầu tiên trong danh sách
+            return sources.sources.find(src => src.quality === 'auto')?.url || sources.sources[0].url;
+        } catch (err) {
+            console.warn("Consumet không tìm thấy phim này, chuyển sang server dự phòng...");
+            return null;
+        }
+    }
+
+    // --- KHỞI TẠO PLAYER ---
+    function startArtPlayer(url) {
+        document.getElementById('artplayer-container').style.display = 'block';
+        document.getElementById('movie-player-fallback').style.display = 'none';
+
+        if (art) art.destroy();
+        art = new ArtPlayer({
+            container: '#artplayer-container',
+            url: url,
+            type: 'm3u8',
+            customType: {
+                m3u8: (video, url) => {
+                    if (Hls.isSupported()) {
+                        const hls = new Hls();
+                        hls.loadSource(url);
+                        hls.attachMedia(video);
+                    }
+                }
+            },
+            fullscreen: true,
+            setting: true,
+            playbackRate: true,
+        });
+    }
+
+    // --- DÙNG IFRAME KHI CONSUMET LỖI ---
+    function startFallback(url) {
+        document.getElementById('artplayer-container').style.display = 'none';
+        const iframe = document.getElementById('movie-player-fallback');
+        iframe.style.display = 'block';
+        iframe.src = url;
+    }
     const playButton = document.getElementById('btn-play-now');
     const embedContainer = document.getElementById('embed-container');
     const heroOverlay = document.getElementById('hero-overlay');
@@ -255,14 +314,18 @@
         moviePlayer.src = `https://vidsrc.xyz/embed/movie?tmdb=${movieId}`;
     }
 
-    function playEpisode(epNum, seasonNum) {
+    async function playEpisode(epNum, seasonNum) {
         heroOverlay.style.display = 'none';
         embedContainer.style.display = 'block';
-        window.scrollTo({
-            top: 0, // Cách đỉnh 50px
-            behavior: 'smooth'
-        });
-        moviePlayer.src = `https://vidsrc.xyz/embed/tv?tmdb=${movieId}&season=${seasonNum}&episode=${epNum}`;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        const streamUrl = await getStreamFromConsumet(movieId, 'tv', seasonNum, epNum);
+
+        if (streamUrl) {
+            startArtPlayer(streamUrl);
+        } else {
+            startFallback(`https://embed.su/embed/tv/${movieId}/${seasonNum}/${epNum}`);
+        }
     }
 
     function closePlayer() {
@@ -297,3 +360,5 @@
         modalImg.src = src;
     }
 </script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/artplayer/dist/artplayer.js"></script>

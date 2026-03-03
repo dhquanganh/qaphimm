@@ -1,18 +1,35 @@
 <header id="navbar">
-        <div class="logo">Trộm<span>Phim</span></div>
-        <nav>
-            <ul>
-                <li><a href="/" class="active">Trang chủ</a></li>
-                <li><a href="/movie-list">Phim Lẻ</a></li>
-                <li><a href="/tv-series">Phim Bộ</a></li>
-                <li><a href="/list-anime-series">Anime Series</a></li>
-                <li><a href="/list-anime-movie">Anime Movie</a></li>
-                <li><a href="/about">Về Tác Giả</a></li>
-            </ul>
-        </nav>
-        <div class="nav-icons">
-            <a style="color: white; text-decoration: none;" href="/search"><i class="fas fa-search"></i></a>
-            <i class="fas fa-bell"></i>
-            <div class="user-avatar"></div>
-        </div>
-    </header>
+    <button class="menu-toggle" id="menu-toggle"><i class="fas fa-bars"></i></button>
+    
+    <div class="logo">Trộm<span>Phim</span></div>
+    
+    <nav id="nav-menu">
+        <ul>
+            <li><a href="/" class="active">Trang chủ</a></li>
+            <li><a href="/movie-list">Phim Lẻ</a></li>
+            <li><a href="/tv-series">Phim Bộ</a></li>
+            <li><a href="/list-anime-series">Anime Series</a></li>
+            <li><a href="/list-anime-movie">Anime Movie</a></li>
+            <li><a href="/about">Về Tác Giả</a></li>
+        </ul>
+    </nav>
+
+    <div class="nav-icons">
+        <a href="/search"><i class="fas fa-search"></i></a>
+        <i class="fas fa-bell"></i>
+        <div class="user-avatar"></div>
+    </div>
+</header>
+
+<script>
+    const menuToggle = document.getElementById('menu-toggle');
+const navMenu = document.getElementById('nav-menu');
+
+menuToggle.addEventListener('click', () => {
+    navMenu.classList.toggle('active');
+    // Đổi icon từ bars sang times (dấu X)
+    const icon = menuToggle.querySelector('i');
+    icon.classList.toggle('fa-bars');
+    icon.classList.toggle('fa-times');
+});
+</script>

@@ -497,6 +497,35 @@ nav ul li a.active {
 }
 
 /* Responsive */
+/* Mặc định cho Desktop giữ nguyên */
+#navbar { display: flex; align-items: center; justify-content: space-between; padding: 15px 5%; }
+.menu-toggle { display: none; background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; }
+
+/* Mobile (Màn hình dưới 768px) */
+@media (max-width: 768px) {
+    .menu-toggle { display: block; }
+    
+    #nav-menu {
+        position: fixed;
+        top: 60px;
+        left: -100%; /* Ẩn menu ra ngoài màn hình */
+        width: 100%;
+        height: 100vh;
+        background: #0f0f0f;
+        transition: 0.3s;
+        z-index: 1000;
+    }
+
+    #nav-menu.active { left: 0; } /* Hiện menu */
+
+    #nav-menu ul {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding-top: 50px;
+        gap: 20px;
+    }
+}
 @media (max-width: 768px) {
     .footer-links {
         display: grid;
