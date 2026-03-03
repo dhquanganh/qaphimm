@@ -186,89 +186,85 @@
     }
 
 
-    async function getUniversalStream(id, type, title, s, e) {
-    const baseUrl = CONSUMET_URL.endsWith('/') ? CONSUMET_URL.slice(0, -1) : CONSUMET_URL;
+    async function getUniversalStream(id, type, s, e) {
+        const baseUrl = CONSUMET_URL.endsWith('/') ? CONSUMET_URL.slice(0, -1) : CONSUMET_URL;
 
-    // 1. LÀM SẠCH TÊN PHIM (Quan trọng nhất để tránh 404)
-    // Ưu tiên original_name (tiếng Anh) để GogoAnime dễ tìm
-    let rawTitle = currentMovieData.original_name || currentMovieData.original_title || title || "";
-    
-    // Loại bỏ ký tự đặc biệt, chỉ giữ lại chữ và số
-    let cleanTitle = rawTitle.replace(/[^\w\s]/gi, '').trim();
+        // LẤY TÊN PHIM TRỰC TIẾP TỪ GIAO DIỆN (Đảm bảo luôn có)
+        const titleElement = document.getElementById('det-title');
+        let rawTitle = titleElement ? titleElement.innerText : "";
 
-    if (!cleanTitle) {
-        console.error("Không xác định được tên phim để tìm kiếm");
-        return null;
-    }
+        // Nếu có tên tiếng Anh/Gốc trong data thì tốt, không thì dùng tên hiện tại
+        if (currentMovieData && currentMovieData.original_name) {
+            rawTitle = currentMovieData.original_name;
+        }
 
-    try {
-        console.log(`Đang tìm kiếm sạch với tên: ${cleanTitle}`);
+        // Làm sạch tên (Bỏ các hậu tố như " (Phim Như Buồi)" nếu có)
+        let cleanTitle = rawTitle.split('(')[0].replace(/[^\w\s]/gi, '').trim();
 
-        // 2. THỬ GOGOANIME TRƯỚC (Vì bạn đang test Naruto/Anime)
-        // GogoAnime trên Consumet thường ổn định hơn TMDB Mapping
-        const searchUrl = `${baseUrl}/anime/gogoanime/${encodeURIComponent(cleanTitle)}`;
-        const searchRes = await fetch(searchUrl);
-        
-        if (searchRes.ok) {
-            const searchData = await searchRes.json();
-            if (searchData.results && searchData.results.length > 0) {
-                // Lấy ID của kết quả đầu tiên
-                const animeId = searchData.results[0].id;
-                console.log("Tìm thấy Anime ID:", animeId);
+        if (!cleanTitle || cleanTitle === "Tên Phim") {
+            console.error("Lỗi: Tên phim chưa tải kịp");
+            return null;
+        }
 
-                const aInfo = await fetch(`${baseUrl}/anime/gogoanime/info/${animeId}`).then(res => res.json());
-                
-                // Tìm tập phim (Anime thường đánh số liên tục 1, 2, 3...)
-                const aEp = aInfo.episodes.find(ep => ep.number === parseInt(e));
-                if (aEp) {
-                    const aWatch = await fetch(`${baseUrl}/anime/gogoanime/watch/${aEp.id}`).then(res => res.json());
-                    if (aWatch.sources) {
-                        return aWatch.sources.find(src => src.quality === 'default' || src.quality === 'auto')?.url || aWatch.sources[0].url;
+        try {
+            console.log(`🔍 Đang truy vấn link cho: ${cleanTitle}`);
+
+            // 1. ƯU TIÊN GOGOANIME CHO ANIME
+            const isAnime = currentMovieData?.genres?.some(g => g.id === 16) || cleanTitle.toLowerCase().includes('frieren');
+
+            if (isAnime) {
+                const searchRes = await fetch(`${baseUrl}/anime/gogoanime/${encodeURIComponent(cleanTitle)}`);
+                if (searchRes.ok) {
+                    const searchData = await searchRes.json();
+                    if (searchData.results?.length > 0) {
+                        const animeId = searchData.results[0].id;
+                        const aInfo = await fetch(`${baseUrl}/anime/gogoanime/info/${animeId}`).then(res => res.json());
+                        const aEp = aInfo.episodes.find(ep => ep.number === parseInt(e));
+                        if (aEp) {
+                            const aWatch = await fetch(`${baseUrl}/anime/gogoanime/watch/${aEp.id}`).then(res => res.json());
+                            return aWatch.sources.find(src => src.quality === 'default' || src.quality === 'auto')?.url || aWatch.sources[0].url;
+                        }
                     }
                 }
             }
-        }
 
-        // 3. THỬ TMDB (Nếu là phim bộ Âu Mỹ hoặc Anime tìm ở trên không thấy)
-        const tmdbUrl = `${baseUrl}/meta/tmdb/info/${id}?type=${type}`;
-        const infoRes = await fetch(tmdbUrl);
-        if (infoRes.ok) {
-            const info = await infoRes.json();
-            const targetEp = info.episodes?.find(ep => ep.season === parseInt(s) && ep.number === parseInt(e));
-            if (targetEp) {
-                const watchRes = await fetch(`${baseUrl}/meta/tmdb/watch/${targetEp.id}?id=${id}`);
-                const watchData = await watchRes.json();
-                if (watchData.sources) return watchData.sources[0].url;
+            // 2. THỬ TMDB CHO TV-SERIES
+            const tmdbRes = await fetch(`${baseUrl}/meta/tmdb/info/${id}?type=${type}`);
+            if (tmdbRes.ok) {
+                const info = await tmdbRes.json();
+                const targetEp = info.episodes?.find(ep => ep.season === parseInt(s) && ep.number === parseInt(e));
+                if (targetEp) {
+                    const watchRes = await fetch(`${baseUrl}/meta/tmdb/watch/${targetEp.id}?id=${id}`);
+                    const watchData = await watchRes.json();
+                    return watchData.sources?.[0]?.url || null;
+                }
             }
+        } catch (err) {
+            console.warn("Dữ liệu Consumet lỗi:", err.message);
         }
-
-    } catch (err) {
-        console.warn("Lỗi server riêng (500/404):", err.message);
+        return null;
     }
-    return null; 
-}
 
     // 4. Player Control
     async function playEpisode(epNum, seasonNum) {
-        document.getElementById('hero-overlay').style.display = 'none';
-        document.getElementById('embed-container').style.display = 'block';
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Hiện container player
+    document.getElementById('hero-overlay').style.display = 'none';
+    const embedContainer = document.getElementById('embed-container');
+    embedContainer.style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 
-        const container = document.getElementById('artplayer-container');
-        container.innerHTML = "<p style='color:white;text-align:center;padding-top:10%'>Đang lấy link phim sạch...</p>";
+    // Hiển thị trạng thái chờ
+    const playerContainer = document.getElementById('artplayer-container');
+    playerContainer.style.display = 'block';
+    playerContainer.innerHTML = "<div style='color:white;text-align:center;padding-top:15%;'>🚀 Đang tìm link m3u8 sạch...</div>";
 
-        // Sử dụng Original Title để tìm kiếm chính xác hơn
-        const titleToSearch = currentMovieData.original_name || currentMovieData.original_title || currentMovieData.name;
-        const streamUrl = await getUniversalStream(movieId, mediaType, titleToSearch, seasonNum, epNum);
-        if (streamUrl) {
-            initArtPlayer(streamUrl);
-        }
-        // } else {
-        //     startFallback(mediaType === 'tv' 
-        //         ? `https://vidsrc.to/embed/tv/${movieId}/${seasonNum}/${epNum}`
-        //         : `https://vidsrc.to/embed/movie/${movieId}`);
-        // }
+    // Gọi hàm lấy link (Bỏ tham số title vì hàm trên đã tự lấy từ DOM)
+    const streamUrl = await getUniversalStream(movieId, mediaType, seasonNum, epNum);
+
+    if (streamUrl) {
+        initArtPlayer(streamUrl);
     }
+}
 
     function initArtPlayer(url) {
         document.getElementById('artplayer-container').style.display = 'block';
