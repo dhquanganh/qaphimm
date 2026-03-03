@@ -102,7 +102,7 @@
     const API_KEY = '17409b8620a1b64c8f444a06b2788a41';
     const BASE_URL = 'https://api.themoviedb.org/3';
     const IMG_URL = 'https://image.tmdb.org/t/p/original';
-    const CONSUMET_URL = 'https://api.consumet.org'; // Khuyên dùng: Thay bằng link Vercel của bạn
+    const CONSUMET_URL = 'apiconsumet-nine.vercel.app'; // Khuyên dùng: Thay bằng link Vercel của bạn
     const PROXY = "https://corsproxy.io/?";
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -185,66 +185,41 @@
         `).join('');
     }
 
-    // 3. Logic Lấy Link Stream (Consumet)
-    async function getUniversalStream(id, type, title, s, e) {
-        // Thử dùng một Proxy khác ổn định hơn hoặc trực tiếp nếu có thể
-        const PROXY_LIST = [
-            (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-            (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
-        ];
 
-        async function fetchJSON(url) {
-            for (let getProxyUrl of PROXY_LIST) {
-                try {
-                    const response = await fetch(getProxyUrl(url));
-                    if (!response.ok) continue;
+async function getUniversalStream(id, type, title, s, e) {
+    try {
+        console.log(`Đang tìm kiếm trực tiếp trên Server riêng: ${title}`);
+        
+        // Luôn ưu tiên dùng tên gốc (English) thay vì tên tiếng Nhật để tìm kiếm rộng hơn
+        const searchTitle = currentMovieData.original_name || title;
 
-                    const contentType = response.headers.get("content-type");
-                    if (contentType && contentType.includes("application/json")) {
-                        return await response.json();
-                    }
-                } catch (err) {
-                    console.error("Proxy error, trying next...");
-                }
+        // 1. THỬ TMDB (Cho Phim Bộ/Lẻ)
+        const info = await fetch(`${CONSUMET_URL}/meta/tmdb/info/${id}?type=${type}`).then(res => res.json());
+        
+        if (info && info.episodes) {
+            const targetEp = info.episodes.find(ep => ep.season === parseInt(s) && ep.number === parseInt(e));
+            if (targetEp) {
+                const watch = await fetch(`${CONSUMET_URL}/meta/tmdb/watch/${targetEp.id}?id=${id}`).then(res => res.json());
+                if (watch.sources) return watch.sources.find(src => src.quality === 'auto')?.url || watch.sources[0].url;
             }
-            return null;
         }
 
-        try {
-            console.log(`Đang tìm kiếm: ${title}`);
-            const isAnime = currentMovieData.genres.some(g => g.id === 16);
-
-            // 1. THỬ TMDB (Cho Phim Bộ)
-            if (!isAnime) {
-                const info = await fetchJSON(`${CONSUMET_URL}/meta/tmdb/info/${id}?type=${type}`);
-                if (info && info.episodes) {
-                    const targetEp = info.episodes.find(ep => ep.season === parseInt(s) && ep.number === parseInt(e));
-                    if (targetEp) {
-                        const watch = await fetchJSON(`${CONSUMET_URL}/meta/tmdb/watch/${targetEp.id}?id=${id}`);
-                        if (watch && watch.sources) return watch.sources.find(src => src.quality === 'auto')?.url || watch.sources[0].url;
-                    }
-                }
+        // 2. THỬ GOGOANIME (Nếu TMDB không có - Đặc biệt cho Anime)
+        const search = await fetch(`${CONSUMET_URL}/anime/gogoanime/${encodeURIComponent(searchTitle)}`).then(res => res.json());
+        if (search.results && search.results[0]) {
+            const animeId = search.results[0].id;
+            const aInfo = await fetch(`${CONSUMET_URL}/anime/gogoanime/info/${animeId}`).then(res => res.json());
+            const aEp = aInfo.episodes.find(ep => ep.number === parseInt(e));
+            if (aEp) {
+                const aWatch = await fetch(`${CONSUMET_URL}/anime/gogoanime/watch/${aEp.id}`).then(res => res.json());
+                return aWatch.sources.find(src => src.quality === 'default')?.url || aWatch.sources[0].url;
             }
-
-            // 2. THỬ GOGOANIME (Cho Anime hoặc khi TMDB lỗi)
-            const search = await fetchJSON(`${CONSUMET_URL}/anime/gogoanime/${encodeURIComponent(title)}`);
-            if (search && search.results && search.results[0]) {
-                const animeId = search.results[0].id;
-                const aInfo = await fetchJSON(`${CONSUMET_URL}/anime/gogoanime/info/${animeId}`);
-                if (aInfo && aInfo.episodes) {
-                    // Với anime dài tập, tập phim có thể đánh số liên tục
-                    const aEp = aInfo.episodes.find(ep => ep.number === parseInt(e));
-                    if (aEp) {
-                        const aWatch = await fetchJSON(`${CONSUMET_URL}/anime/gogoanime/watch/${aEp.id}`);
-                        if (aWatch && aWatch.sources) return aWatch.sources.find(src => src.quality === 'default')?.url || aWatch.sources[0].url;
-                    }
-                }
-            }
-        } catch (err) {
-            console.error("Final Error:", err);
         }
-        return null;
+    } catch (err) {
+        console.error("Server API riêng gặp lỗi:", err);
     }
+    return null; 
+}
 
     // 4. Player Control
     async function playEpisode(epNum, seasonNum) {
