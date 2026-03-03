@@ -5,13 +5,13 @@
             <iframe id="movie-player-fallback" style="display:none;" allowfullscreen></iframe>
         </div>
         <div class="server-control">
-        <p><i class="fas fa-server"></i> Chọn Server (Đổi server nếu thiếu tập hoặc lag):</p>
-        <div class="server-list">
-            <button class="srv-btn active" onclick="switchServer('cc', this)">Server 1 (.cc)</button>
-            <button class="srv-btn" onclick="switchServer('xyz', this)">Server 2 (.xyz)</button>
-            <button class="srv-btn" onclick="switchServer('me', this)">Server 3 (.me)</button>
+            <p><i class="fas fa-server"></i> Chọn Server (Đổi server nếu thiếu tập hoặc lag):</p>
+            <div class="server-list">
+                <button class="srv-btn active" onclick="switchServer('cc', this)">Server 1 (.cc)</button>
+                <button class="srv-btn" onclick="switchServer('xyz', this)">Server 2 (.xyz)</button>
+                <button class="srv-btn" onclick="switchServer('me', this)">Server 3 (.me)</button>
+            </div>
         </div>
-    </div>
     </div>
 
     <section class="movie-hero" id="movie-hero">
@@ -195,49 +195,50 @@
 
     let currentSea = 1;
 
-async function playEpisode(epNum, seasonNum) {
-    currentEp = epNum;
-    currentSea = seasonNum;
+    async function playEpisode(epNum, seasonNum) {
+        currentEp = epNum;
+        currentSea = seasonNum;
 
-    // Hiển thị trình phát
-    document.getElementById('hero-overlay').style.display = 'none';
-    document.getElementById('embed-container').style.display = 'block';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+        // Hiển thị trình phát
+        document.getElementById('hero-overlay').style.display = 'none';
+        document.getElementById('embed-container').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    // Mặc định luôn chạy Server 1 (.cc) khi mới bấm vào tập
-    const firstBtn = document.querySelector('.srv-btn');
-    switchServer('cc', firstBtn);
-}
-
-function switchServer(provider, btnElement) {
-    const ifr = document.getElementById('movie-player-fallback');
-    let url = "";
-
-    // Cấu trúc link dựa trên provider
-    if (provider === 'cc') {
-        url = mediaType === 'tv' 
-            ? `https://vidsrc.cc/v2/embed/tv/${movieId}/${currentSea}/${currentEp}`
-            : `https://vidsrc.cc/v2/embed/movie/${movieId}`;
-    } else if (provider === 'xyz') {
-        url = mediaType === 'tv'
-            ? `https://vidsrc.xyz/embed/tv/${movieId}/${currentSea}/${currentEp}`
-            : `https://vidsrc.xyz/embed/movie/${movieId}`;
-    } else if (provider === 'me') {
-        url = mediaType === 'tv'
-            ? `https://vidsrc.me/embed/tv?tmdb=${movieId}&sea=${currentSea}&ep=${currentEp}`
-            : `https://vidsrc.me/embed/movie?tmdb=${movieId}`;
+        // Mặc định luôn chạy Server 1 (.cc) khi mới bấm vào tập
+        const firstBtn = document.querySelector('.srv-btn');
+        
+        switchServer('cc', firstBtn);
     }
 
-    // Cập nhật link cho iframe
-    ifr.style.display = 'block';
-    ifr.src = url;
+    function switchServer(provider, btnElement) {
+        const ifr = document.getElementById('movie-player-fallback');
+        let url = "";
+        let malId = getMapping(movieId);
+        // Cấu trúc link dựa trên provider
+        if (provider === 'cc') {
+            url = mediaType === 'tv'
+                ? `https://vidsrc.cc/v2/embed/anime/${malId}/${currentSea}/${currentEp}?autoPlay=true`
+                : `https://vidsrc.cc/v2/embed/movie/${movieId}`;
+        } else if (provider === 'xyz') {
+            url = mediaType === 'tv'
+                ? `https://vidsrc.xyz/embed/tv/${movieId}/${currentSea}/${currentEp}`
+                : `https://vidsrc.xyz/embed/movie/${movieId}`;
+        } else if (provider === 'me') {
+            url = mediaType === 'tv'
+                ? `https://vidsrc.me/embed/tv?tmdb=${movieId}&sea=${currentSea}&ep=${currentEp}`
+                : `https://vidsrc.me/embed/movie?tmdb=${movieId}`;
+        }
 
-    // Đổi trạng thái nút Active
-    document.querySelectorAll('.srv-btn').forEach(btn => btn.classList.remove('active'));
-    if (btnElement) {
-        btnElement.classList.add('active');
+        // Cập nhật link cho iframe
+        ifr.style.display = 'block';
+        ifr.src = url;
+
+        // Đổi trạng thái nút Active
+        document.querySelectorAll('.srv-btn').forEach(btn => btn.classList.remove('active'));
+        if (btnElement) {
+            btnElement.classList.add('active');
+        }
     }
-}
 
     // Khởi tạo nút Play Now ở Hero
     document.getElementById('btn-play-now').onclick = () => {
@@ -248,9 +249,27 @@ function switchServer(provider, btnElement) {
         const photoContainer = document.getElementById('photo-list');
         if (!backdrops.length) return photoContainer.innerHTML = '<p>Không có ảnh.</p>';
         photoContainer.innerHTML = backdrops.slice(0, 910).map(img => `
-            <div class="photo-item"><img src="https://image.tmdb.org/t/p/w500${img.file_path}"></div>
+            <div onclick="openFullPhoto('${IMG_URL}${img.file_path}')" class="photo-item"><img src="https://image.tmdb.org/t/p/w500${img.file_path}"></div>
         `).join('');
     }
 
     fetchMovieDetails();
+    function openFullPhoto(src) {
+
+        const modal = document.getElementById('photo-modal');
+
+        const modalImg = document.getElementById('full-photo');
+
+        modal.style.display = "flex";
+
+        modalImg.src = src;
+
+    }
+    async function getMapping(tmdbId) {
+        const res = await fetch(`https://api.consumet.org/utils/mapping/${tmdbId}`);
+        const data = await res.json();
+
+        console.log("Mal ID:", data.malId);
+        console.log("AniList ID:", data.anilistId);
+    }
 </script>
