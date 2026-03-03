@@ -4,6 +4,14 @@
             <div id="artplayer-container"></div>
             <iframe id="movie-player-fallback" style="display:none;" allowfullscreen></iframe>
         </div>
+        <div class="server-control">
+        <p><i class="fas fa-server"></i> Chọn Server (Đổi server nếu thiếu tập hoặc lag):</p>
+        <div class="server-list">
+            <button class="srv-btn active" onclick="switchServer('cc', this)">Server 1 (.cc)</button>
+            <button class="srv-btn" onclick="switchServer('xyz', this)">Server 2 (.xyz)</button>
+            <button class="srv-btn" onclick="switchServer('me', this)">Server 3 (.me)</button>
+        </div>
+    </div>
     </div>
 
     <section class="movie-hero" id="movie-hero">
@@ -185,32 +193,51 @@
         `).join('');
     }
 
-    // 3. Logic Phát Phim (Anime vs TV/Movie)
-    function playEpisode(epNum, seasonNum) {
-        // 1. Giao diện
-        document.getElementById('hero-overlay').style.display = 'none';
-        document.getElementById('embed-container').style.display = 'block';
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+    let currentSea = 1;
 
-        const ifr = document.getElementById('movie-player-fallback');
-        ifr.style.display = 'block';
+async function playEpisode(epNum, seasonNum) {
+    currentEp = epNum;
+    currentSea = seasonNum;
 
-        // 2. Cấu trúc URL cho các nguồn ổn định nhất 2024
-        let finalUrl = "";
+    // Hiển thị trình phát
+    document.getElementById('hero-overlay').style.display = 'none';
+    document.getElementById('embed-container').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 
-        // Ưu tiên server vidsrc.xyz (Rất mạnh cho Anime và TV Series)
-        if (mediaType === 'tv') {
-            // vidsrc.xyz hỗ trợ tốt TMDB ID cho cả Anime
-            finalUrl = `https://vidsrc.xyz/embed/tv/${movieId}/${seasonNum}/${epNum}`;
-        } else {
-            finalUrl = `https://vidsrc.xyz/embed/movie/${movieId}`;
-        }
+    // Mặc định luôn chạy Server 1 (.cc) khi mới bấm vào tập
+    const firstBtn = document.querySelector('.srv-btn');
+    switchServer('cc', firstBtn);
+}
 
-        // Nếu vidsrc.xyz lỗi, bạn có thể đổi link này thành vidsrc.to hoặc vidsrc.me ở code dưới
-        ifr.src = finalUrl;
+function switchServer(provider, btnElement) {
+    const ifr = document.getElementById('movie-player-fallback');
+    let url = "";
 
-        console.log("🚀 Đang phát từ server: vidsrc.xyz");
+    // Cấu trúc link dựa trên provider
+    if (provider === 'cc') {
+        url = mediaType === 'tv' 
+            ? `https://vidsrc.cc/v2/embed/tv/${movieId}/${currentSea}/${currentEp}`
+            : `https://vidsrc.cc/v2/embed/movie/${movieId}`;
+    } else if (provider === 'xyz') {
+        url = mediaType === 'tv'
+            ? `https://vidsrc.xyz/embed/tv/${movieId}/${currentSea}/${currentEp}`
+            : `https://vidsrc.xyz/embed/movie/${movieId}`;
+    } else if (provider === 'me') {
+        url = mediaType === 'tv'
+            ? `https://vidsrc.me/embed/tv?tmdb=${movieId}&sea=${currentSea}&ep=${currentEp}`
+            : `https://vidsrc.me/embed/movie?tmdb=${movieId}`;
     }
+
+    // Cập nhật link cho iframe
+    ifr.style.display = 'block';
+    ifr.src = url;
+
+    // Đổi trạng thái nút Active
+    document.querySelectorAll('.srv-btn').forEach(btn => btn.classList.remove('active'));
+    if (btnElement) {
+        btnElement.classList.add('active');
+    }
+}
 
     // Khởi tạo nút Play Now ở Hero
     document.getElementById('btn-play-now').onclick = () => {
@@ -220,7 +247,7 @@
     function renderPhotos(backdrops) {
         const photoContainer = document.getElementById('photo-list');
         if (!backdrops.length) return photoContainer.innerHTML = '<p>Không có ảnh.</p>';
-        photoContainer.innerHTML = backdrops.slice(0, 10).map(img => `
+        photoContainer.innerHTML = backdrops.slice(0, 910).map(img => `
             <div class="photo-item"><img src="https://image.tmdb.org/t/p/w500${img.file_path}"></div>
         `).join('');
     }
