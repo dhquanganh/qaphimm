@@ -102,14 +102,11 @@
     const API_KEY = '17409b8620a1b64c8f444a06b2788a41';
     const BASE_URL = 'https://api.themoviedb.org/3';
     const IMG_URL = 'https://image.tmdb.org/t/p/original';
-    const CONSUMET_URL = 'https://apiconsumet-nine.vercel.app'; // Khuyên dùng: Thay bằng link Vercel của bạn
-    const PROXY = "https://corsproxy.io/?";
 
     const urlParams = new URLSearchParams(window.location.search);
     const movieId = urlParams.get('id');
     const mediaType = urlParams.get('type') || 'movie';
 
-    let art = null;
     let currentMovieData = null;
 
     if (!movieId) window.location.href = '/';
@@ -121,7 +118,7 @@
             const response = await fetch(detailUrl);
             currentMovieData = await response.json();
             renderMovieDetails(currentMovieData);
-            renderPhotos(currentMovieData.images.backdrops);
+            renderPhotos(currentMovieData.images?.backdrops || []);
         } catch (error) {
             console.error('Lỗi lấy chi tiết:', error);
         }
@@ -167,9 +164,12 @@
         const section = document.getElementById('episodes-section');
         const seasonSelect = document.getElementById('season-select');
         section.style.display = 'block';
-        seasonSelect.innerHTML = movie.seasons.map(s => `<option value="${s.season_number}">Season ${s.season_number}</option>`).join('');
+        seasonSelect.innerHTML = movie.seasons
+            .filter(s => s.season_number > 0) // Bỏ qua phần Specials nếu muốn
+            .map(s => `<option value="${s.season_number}">Season ${s.season_number}</option>`).join('');
+
         seasonSelect.onchange = (e) => fetchEpisodes(movie.id, e.target.value);
-        fetchEpisodes(movie.id, 1);
+        fetchEpisodes(movie.id, seasonSelect.value || 1);
     }
 
     async function fetchEpisodes(tvId, seasonNum) {
@@ -185,136 +185,38 @@
         `).join('');
     }
 
-
-    async function getUniversalStream(id, type, s, e) {
-        const baseUrl = CONSUMET_URL.endsWith('/') ? CONSUMET_URL.slice(0, -1) : CONSUMET_URL;
-
-        // LẤY TÊN PHIM TRỰC TIẾP TỪ GIAO DIỆN (Đảm bảo luôn có)
-        const titleElement = document.getElementById('det-title');
-        let rawTitle = titleElement ? titleElement.innerText : "";
-
-        // Nếu có tên tiếng Anh/Gốc trong data thì tốt, không thì dùng tên hiện tại
-        if (currentMovieData && currentMovieData.original_name) {
-            rawTitle = currentMovieData.original_name;
-        }
-
-        // Làm sạch tên (Bỏ các hậu tố như " (Phim Như Buồi)" nếu có)
-        let cleanTitle = rawTitle.split('(')[0].replace(/[^\w\s]/gi, '').trim();
-
-        if (!cleanTitle || cleanTitle === "Tên Phim") {
-            console.error("Lỗi: Tên phim chưa tải kịp");
-            return null;
-        }
-
-        try {
-            console.log(`🔍 Đang truy vấn link cho: ${cleanTitle}`);
-
-            // 1. ƯU TIÊN GOGOANIME CHO ANIME
-            const isAnime = currentMovieData?.genres?.some(g => g.id === 16) || cleanTitle.toLowerCase().includes('frieren');
-
-            if (isAnime) {
-                const searchRes = await fetch(`${baseUrl}/anime/gogoanime/${encodeURIComponent(cleanTitle)}`);
-                if (searchRes.ok) {
-                    const searchData = await searchRes.json();
-                    if (searchData.results?.length > 0) {
-                        const animeId = searchData.results[0].id;
-                        const aInfo = await fetch(`${baseUrl}/anime/gogoanime/info/${animeId}`).then(res => res.json());
-                        const aEp = aInfo.episodes.find(ep => ep.number === parseInt(e));
-                        if (aEp) {
-                            const aWatch = await fetch(`${baseUrl}/anime/gogoanime/watch/${aEp.id}`).then(res => res.json());
-                            return aWatch.sources.find(src => src.quality === 'default' || src.quality === 'auto')?.url || aWatch.sources[0].url;
-                        }
-                    }
-                }
-            }
-
-            // 2. THỬ TMDB CHO TV-SERIES
-            const tmdbRes = await fetch(`${baseUrl}/meta/tmdb/info/${id}?type=${type}`);
-            if (tmdbRes.ok) {
-                const info = await tmdbRes.json();
-                const targetEp = info.episodes?.find(ep => ep.season === parseInt(s) && ep.number === parseInt(e));
-                if (targetEp) {
-                    const watchRes = await fetch(`${baseUrl}/meta/tmdb/watch/${targetEp.id}?id=${id}`);
-                    const watchData = await watchRes.json();
-                    return watchData.sources?.[0]?.url || null;
-                }
-            }
-        } catch (err) {
-            console.warn("Dữ liệu Consumet lỗi:", err.message);
-        }
-        return null;
-    }
-
-    // 4. Player Control
-    async function playEpisode(epNum, seasonNum) {
-        // Hiện container player
+    // 3. Logic Phát Phim (Anime vs TV/Movie)
+    function playEpisode(epNum, seasonNum) {
+        // 1. Giao diện
         document.getElementById('hero-overlay').style.display = 'none';
-        const embedContainer = document.getElementById('embed-container');
-        embedContainer.style.display = 'block';
+        document.getElementById('embed-container').style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
-        // Hiển thị trạng thái chờ
-        const playerContainer = document.getElementById('artplayer-container');
-        playerContainer.style.display = 'block';
-        playerContainer.innerHTML = "<div style='color:white;text-align:center;padding-top:15%;'>🚀 Đang tìm link m3u8 sạch...</div>";
-
-        // Gọi hàm lấy link (Bỏ tham số title vì hàm trên đã tự lấy từ DOM)
-        const streamUrl = await getUniversalStream(movieId, mediaType, seasonNum, epNum);
-
-        if (streamUrl) {
-            initArtPlayer(streamUrl);
-        } else {
-            console.log("Không tìm thấy link m3u8, dùng server dự phòng Iframe");
-            const fallbackUrl = mediaType === 'tv'
-                ? `https://vidsrc.to/embed/tv/${movieId}/${seasonNum}/${epNum}`
-                : `https://vidsrc.to/embed/movie/${movieId}`;
-            startFallback(fallbackUrl);
-        }
-    }
-
-    function initArtPlayer(url) {
-        document.getElementById('artplayer-container').style.display = 'block';
-        document.getElementById('movie-player-fallback').style.display = 'none';
-        if (art) art.destroy();
-        art = new ArtPlayer({
-            container: '#artplayer-container',
-            url: url,
-            type: 'm3u8',
-            customType: {
-                m3u8: (video, url) => {
-                    if (Hls.isSupported()) {
-                        const hls = new Hls();
-                        hls.loadSource(url);
-                        hls.attachMedia(video);
-                    }
-                }
-            },
-            fullscreen: true, setting: true, playbackRate: true,
-        });
-    }
-
-    function startFallback(url) {
-        document.getElementById('artplayer-container').style.display = 'none';
         const ifr = document.getElementById('movie-player-fallback');
         ifr.style.display = 'block';
-        ifr.src = url;
+
+        // 2. Cấu trúc URL cho các nguồn ổn định nhất 2024
+        let finalUrl = "";
+
+        // Ưu tiên server vidsrc.xyz (Rất mạnh cho Anime và TV Series)
+        if (mediaType === 'tv') {
+            // vidsrc.xyz hỗ trợ tốt TMDB ID cho cả Anime
+            finalUrl = `https://vidsrc.xyz/embed/tv/${movieId}/${seasonNum}/${epNum}`;
+        } else {
+            finalUrl = `https://vidsrc.xyz/embed/movie/${movieId}`;
+        }
+
+        // Nếu vidsrc.xyz lỗi, bạn có thể đổi link này thành vidsrc.to hoặc vidsrc.me ở code dưới
+        ifr.src = finalUrl;
+
+        console.log("🚀 Đang phát từ server: vidsrc.xyz");
     }
 
-    function closePlayer() {
-        document.getElementById('embed-container').style.display = 'none';
-        document.getElementById('hero-overlay').style.display = 'block';
-        if (art) art.pause();
-        document.getElementById('movie-player-fallback').src = '';
-    }
-
+    // Khởi tạo nút Play Now ở Hero
     document.getElementById('btn-play-now').onclick = () => {
-        if (mediaType === 'movie') playEpisode(1, 1);
-        else playEpisode(1, 1);
+        playEpisode(1, 1);
     };
 
-    fetchMovieDetails();
-
-    // Giữ nguyên hàm renderPhotos cũ của bạn
     function renderPhotos(backdrops) {
         const photoContainer = document.getElementById('photo-list');
         if (!backdrops.length) return photoContainer.innerHTML = '<p>Không có ảnh.</p>';
@@ -322,6 +224,6 @@
             <div class="photo-item"><img src="https://image.tmdb.org/t/p/w500${img.file_path}"></div>
         `).join('');
     }
+
+    fetchMovieDetails();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-<script src="https://cdn.jsdelivr.net/npm/artplayer/dist/artplayer.js"></script>
