@@ -187,55 +187,66 @@
 
 
     async function getUniversalStream(id, type, title, s, e) {
-        const baseUrl = CONSUMET_URL.endsWith('/') ? CONSUMET_URL.slice(0, -1) : CONSUMET_URL;
+    const baseUrl = CONSUMET_URL.endsWith('/') ? CONSUMET_URL.slice(0, -1) : CONSUMET_URL;
 
-        try {
-            // Ưu tiên lấy Original Name từ TMDB (VD: "Naruto" thay vì "ナルト")
-            // Nếu không có original_name thì mới dùng title truyền vào
-            let searchTitle = (currentMovieData.original_name || currentMovieData.original_title || title);
+    // 1. LÀM SẠCH TÊN PHIM (Quan trọng nhất để tránh 404)
+    // Ưu tiên original_name (tiếng Anh) để GogoAnime dễ tìm
+    let rawTitle = currentMovieData.original_name || currentMovieData.original_title || title || "";
+    
+    // Loại bỏ ký tự đặc biệt, chỉ giữ lại chữ và số
+    let cleanTitle = rawTitle.replace(/[^\w\s]/gi, '').trim();
 
-            // Làm sạch tên phim: Chỉ giữ lại chữ và số, bỏ các ký tự đặc biệt để API dễ tìm
-            searchTitle = searchTitle.replace(/[^\w\s]/gi, '');
-
-            console.log(`Đang tìm với tên: ${searchTitle}`);
-
-            // 1. THỬ TMDB (Provider này ổn định nhất cho TV Series)
-            const infoRes = await fetch(`${baseUrl}/meta/tmdb/info/${id}?type=${type}`);
-            if (infoRes.ok) {
-                const info = await infoRes.json();
-                const targetEp = info.episodes?.find(ep => ep.season === parseInt(s) && ep.number === parseInt(e));
-                if (targetEp) {
-                    const watchRes = await fetch(`${baseUrl}/meta/tmdb/watch/${targetEp.id}?id=${id}`);
-                    if (watchRes.ok) {
-                        const watchData = await watchRes.json();
-                        return watchData.sources.find(src => src.quality === 'auto')?.url || watchData.sources[0].url;
-                    }
-                }
-            }
-
-            // 2. THỬ GOGOANIME (Nếu TMDB 404 hoặc không có tập phim)
-            // Encode chuẩn để tránh lỗi 404 do ký tự lạ
-            const animeSearchUrl = `${baseUrl}/anime/gogoanime/${encodeURIComponent(searchTitle)}`;
-            const searchRes = await fetch(animeSearchUrl);
-
-            if (searchRes.ok) {
-                const searchData = await searchRes.json();
-                if (searchData.results && searchData.results.length > 0) {
-                    const animeId = searchData.results[0].id;
-                    const aInfo = await fetch(`${baseUrl}/anime/gogoanime/info/${animeId}`).then(res => res.json());
-                    const aEp = aInfo.episodes.find(ep => ep.number === parseInt(e));
-                    if (aEp) {
-                        const aWatch = await fetch(`${baseUrl}/anime/gogoanime/watch/${aEp.id}`).then(res => res.json());
-                        return aWatch.sources.find(src => src.quality === 'default')?.url || aWatch.sources[0].url;
-                    }
-                }
-            }
-
-        } catch (err) {
-            console.warn("Lỗi fetch Consumet, đang chuyển dự phòng:", err.message);
-        }
-        return null; // Trả về null để dùng VidSrc Iframe
+    if (!cleanTitle) {
+        console.error("Không xác định được tên phim để tìm kiếm");
+        return null;
     }
+
+    try {
+        console.log(`Đang tìm kiếm sạch với tên: ${cleanTitle}`);
+
+        // 2. THỬ GOGOANIME TRƯỚC (Vì bạn đang test Naruto/Anime)
+        // GogoAnime trên Consumet thường ổn định hơn TMDB Mapping
+        const searchUrl = `${baseUrl}/anime/gogoanime/${encodeURIComponent(cleanTitle)}`;
+        const searchRes = await fetch(searchUrl);
+        
+        if (searchRes.ok) {
+            const searchData = await searchRes.json();
+            if (searchData.results && searchData.results.length > 0) {
+                // Lấy ID của kết quả đầu tiên
+                const animeId = searchData.results[0].id;
+                console.log("Tìm thấy Anime ID:", animeId);
+
+                const aInfo = await fetch(`${baseUrl}/anime/gogoanime/info/${animeId}`).then(res => res.json());
+                
+                // Tìm tập phim (Anime thường đánh số liên tục 1, 2, 3...)
+                const aEp = aInfo.episodes.find(ep => ep.number === parseInt(e));
+                if (aEp) {
+                    const aWatch = await fetch(`${baseUrl}/anime/gogoanime/watch/${aEp.id}`).then(res => res.json());
+                    if (aWatch.sources) {
+                        return aWatch.sources.find(src => src.quality === 'default' || src.quality === 'auto')?.url || aWatch.sources[0].url;
+                    }
+                }
+            }
+        }
+
+        // 3. THỬ TMDB (Nếu là phim bộ Âu Mỹ hoặc Anime tìm ở trên không thấy)
+        const tmdbUrl = `${baseUrl}/meta/tmdb/info/${id}?type=${type}`;
+        const infoRes = await fetch(tmdbUrl);
+        if (infoRes.ok) {
+            const info = await infoRes.json();
+            const targetEp = info.episodes?.find(ep => ep.season === parseInt(s) && ep.number === parseInt(e));
+            if (targetEp) {
+                const watchRes = await fetch(`${baseUrl}/meta/tmdb/watch/${targetEp.id}?id=${id}`);
+                const watchData = await watchRes.json();
+                if (watchData.sources) return watchData.sources[0].url;
+            }
+        }
+
+    } catch (err) {
+        console.warn("Lỗi server riêng (500/404):", err.message);
+    }
+    return null; 
+}
 
     // 4. Player Control
     async function playEpisode(epNum, seasonNum) {
