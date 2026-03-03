@@ -247,24 +247,30 @@
 
     // 4. Player Control
     async function playEpisode(epNum, seasonNum) {
-    // Hiện container player
-    document.getElementById('hero-overlay').style.display = 'none';
-    const embedContainer = document.getElementById('embed-container');
-    embedContainer.style.display = 'block';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+        // Hiện container player
+        document.getElementById('hero-overlay').style.display = 'none';
+        const embedContainer = document.getElementById('embed-container');
+        embedContainer.style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    // Hiển thị trạng thái chờ
-    const playerContainer = document.getElementById('artplayer-container');
-    playerContainer.style.display = 'block';
-    playerContainer.innerHTML = "<div style='color:white;text-align:center;padding-top:15%;'>🚀 Đang tìm link m3u8 sạch...</div>";
+        // Hiển thị trạng thái chờ
+        const playerContainer = document.getElementById('artplayer-container');
+        playerContainer.style.display = 'block';
+        playerContainer.innerHTML = "<div style='color:white;text-align:center;padding-top:15%;'>🚀 Đang tìm link m3u8 sạch...</div>";
 
-    // Gọi hàm lấy link (Bỏ tham số title vì hàm trên đã tự lấy từ DOM)
-    const streamUrl = await getUniversalStream(movieId, mediaType, seasonNum, epNum);
+        // Gọi hàm lấy link (Bỏ tham số title vì hàm trên đã tự lấy từ DOM)
+        const streamUrl = await getUniversalStream(movieId, mediaType, seasonNum, epNum);
 
-    if (streamUrl) {
-        initArtPlayer(streamUrl);
+        if (streamUrl) {
+            initArtPlayer(streamUrl);
+        } else {
+            console.log("Không tìm thấy link m3u8, dùng server dự phòng Iframe");
+            const fallbackUrl = mediaType === 'tv'
+                ? `https://vidsrc.to/embed/tv/${movieId}/${seasonNum}/${epNum}`
+                : `https://vidsrc.to/embed/movie/${movieId}`;
+            startFallback(fallbackUrl);
+        }
     }
-}
 
     function initArtPlayer(url) {
         document.getElementById('artplayer-container').style.display = 'block';
