@@ -1,7 +1,8 @@
 <main>
     <div id="embed-container" style="display: none;">
-        <div class="player-wrapper">
-            <div id="artplayer-container" style="width: 100%; height: 100%;"></div>
+        <div class="player-wrapper" id="player-wrapper">
+            <div id="artplayer-container"></div>
+            <iframe id="movie-player-fallback" style="display:none;" allowfullscreen></iframe>
         </div>
     </div>
 
@@ -101,172 +102,175 @@
     const API_KEY = '17409b8620a1b64c8f444a06b2788a41';
     const BASE_URL = 'https://api.themoviedb.org/3';
     const IMG_URL = 'https://image.tmdb.org/t/p/original';
+    const CONSUMET_URL = 'https://api.consumet.org'; // Khuyên dùng: Thay bằng link Vercel của bạn
+    const PROXY = "https://corsproxy.io/?";
 
-    // 1. Lấy tham số từ URL
     const urlParams = new URLSearchParams(window.location.search);
     const movieId = urlParams.get('id');
-    const mediaType = urlParams.get('type') || 'movie'; // 'movie' hoặc 'tv'
+    const mediaType = urlParams.get('type') || 'movie';
 
-    if (!movieId) {
-        window.location.href = '/';
-    }
+    let art = null;
+    let currentMovieData = null;
 
-    // 2. Gọi API chi tiết
+    if (!movieId) window.location.href = '/';
+
+    // 1. Fetch Dữ liệu từ TMDB
     async function fetchMovieDetails() {
-        const detailUrl = `${BASE_URL}/${mediaType}/${movieId}?api_key=${API_KEY}&language=vi-VN&append_to_response=credits,reviews,images&include_image_language=en,vi,null`;;
-
+        const detailUrl = `${BASE_URL}/${mediaType}/${movieId}?api_key=${API_KEY}&language=vi-VN&append_to_response=credits,reviews,images&include_image_language=en,vi,null`;
         try {
             const response = await fetch(detailUrl);
-            const data = await response.json();
-            renderMovieDetails(data);
-            renderPhotos(data.images.backdrops);
+            currentMovieData = await response.json();
+            renderMovieDetails(currentMovieData);
+            renderPhotos(currentMovieData.images.backdrops);
         } catch (error) {
             console.error('Lỗi lấy chi tiết:', error);
         }
     }
 
-    // 3. Render dữ liệu
     function renderMovieDetails(movie) {
-        // Xử lý tiêu đề và năm (tương thích Movie/TV)
         const title = movie.title || movie.name;
-        const year = movie.release_date ? movie.release_date.split('-')[0] : (movie.first_air_date ? movie.first_air_date.split('-')[0] : 'N/A');
+        const year = (movie.release_date || movie.first_air_date || 'N/A').split('-')[0];
 
-        // Banner và tiêu đề chính
         document.getElementById('movie-hero').style.backgroundImage = `url(${IMG_URL}${movie.backdrop_path})`;
         document.getElementById('det-title').innerText = title;
-        switch (movie.id) {
-            case 844386:
-                document.getElementById('det-title').innerText = title + " (Phim Như Buồi)";
-                break;
-        }
+        document.getElementById('det-title-body').innerText = title;
         document.getElementById('det-tagline').innerText = movie.tagline || '';
-        document.getElementById('det-title-body').innerText = title; // Tên phim trên description
-
-        // Mô tả và Meta
         document.getElementById('det-description').innerText = movie.overview || 'Không có mô tả.';
         document.getElementById('det-year').innerText = year;
         document.getElementById('det-languages').innerText = movie.original_language.toUpperCase();
-        const runtimeElement = document.getElementById('det-runtime');
+        document.getElementById('imdb-rating').innerHTML = `<i class="fas fa-star" style="color:yellow;"></i> ${movie.vote_average.toFixed(1)} / 10`;
 
         if (mediaType === 'movie') {
-            // Phim lẻ: runtime tính bằng phút
-            runtimeElement.innerText = movie.runtime ? `${movie.runtime} phút` : 'N/A';
+            document.getElementById('det-runtime').innerText = `${movie.runtime} phút`;
+            document.getElementById('episodes-section').style.display = 'none';
         } else {
-            // Phim bộ: runtime thường là mảng các thời lượng tập phim (ví dụ: [45])
-            if (movie.episode_run_time && movie.episode_run_time.length > 0) {
-                runtimeElement.innerText = `${movie.episode_run_time[0]} phút/tập`;
-            } else {
-                runtimeElement.innerText = 'N/A';
-            }
+            document.getElementById('det-runtime').innerText = movie.episode_run_time?.[0] ? `${movie.episode_run_time[0]} phút/tập` : 'N/A';
+            renderSeasons(movie);
         }
-        // Thể loại
+
         if (movie.genres) {
             document.getElementById('det-genres').innerHTML = movie.genres.map(g => `<span>${g.name}</span>`).join('');
         }
 
-        // Ratings
-        document.getElementById('imdb-rating').innerHTML = `<i class="fas fa-star" style="color:yellow;"></i> ${movie.vote_average.toFixed(1)} / 10`;
-
-        // Cast
-        const castContainer = document.getElementById('cast-list');
-        if (movie.credits && movie.credits.cast) {
-            castContainer.innerHTML = movie.credits.cast.slice(0, 6).map(actor => `
+        if (movie.credits?.cast) {
+            document.getElementById('cast-list').innerHTML = movie.credits.cast.slice(0, 6).map(actor => `
                 <div class="cast-item">
                     <img src="${actor.profile_path ? 'https://image.tmdb.org/t/p/w200' + actor.profile_path : 'https://via.placeholder.com/100x150'}" alt="${actor.name}">
                     <p>${actor.name}</p>
                 </div>
             `).join('');
         }
-
-        // Director
-        if (movie.credits && movie.credits.crew) {
-            const director = movie.credits.crew.find(person => person.job === 'Director');
-            document.getElementById('det-director').innerText = director ? director.name : 'Không rõ';
-        }
-
-        // --- CHECK IF TV SHOW ---
-        if (mediaType === 'tv') {
-            renderSeasons(movie);
-        } else {
-            document.getElementById('episodes-section').style.display = 'none';
-        }
     }
 
-    // 4. Render Seasons/Episodes
+    // 2. Xử lý Season & Episode
     function renderSeasons(movie) {
         const section = document.getElementById('episodes-section');
         const seasonSelect = document.getElementById('season-select');
         section.style.display = 'block';
-
-        seasonSelect.innerHTML = movie.seasons.map(season =>
-            `<option value="${season.season_number}">Season ${season.season_number}</option>`
-        ).join('');
-
-        seasonSelect.addEventListener('change', (e) => {
-            fetchEpisodes(movie.id, e.target.value);
-        });
-
+        seasonSelect.innerHTML = movie.seasons.map(s => `<option value="${s.season_number}">Season ${s.season_number}</option>`).join('');
+        seasonSelect.onchange = (e) => fetchEpisodes(movie.id, e.target.value);
         fetchEpisodes(movie.id, 1);
     }
 
-    async function fetchEpisodes(tvId, seasonNumber) {
-        const url = `${BASE_URL}/tv/${tvId}/season/${seasonNumber}?api_key=${API_KEY}&language=vi-VN`;
-        try {
-            const res = await fetch(url);
-            const data = await res.json();
-            renderEpisodes(data.episodes);
-        } catch (error) {
-            console.error('Lỗi lấy tập:', error);
-        }
-    }
-
-    function renderEpisodes(episodes) {
+    async function fetchEpisodes(tvId, seasonNum) {
+        const url = `${BASE_URL}/tv/${tvId}/season/${seasonNum}?api_key=${API_KEY}&language=vi-VN`;
+        const res = await fetch(url);
+        const data = await res.json();
         const container = document.getElementById('episodes-list');
-        container.innerHTML = episodes.map(ep => `
+        container.innerHTML = data.episodes.map(ep => `
             <div class="episode-card" onclick="playEpisode(${ep.episode_number}, ${ep.season_number})">
-                <img src="${ep.still_path ? 'https://image.tmdb.org/t/p/w300' + ep.still_path : 'placeholder.jpg'}" alt="${ep.name}">
-                <div class="episode-card-info">
-                    <p>Tập ${ep.episode_number}: ${ep.name}</p>
-                    <span>${ep.runtime || '--'} phút</span>
-                </div>
+                <img src="${ep.still_path ? 'https://image.tmdb.org/t/p/w300' + ep.still_path : 'https://via.placeholder.com/300x170'}" alt="${ep.name}">
+                <div class="episode-card-info"><p>Tập ${ep.episode_number}: ${ep.name}</p></div>
             </div>
         `).join('');
     }
 
-    // 5. Player Logic
-    let art; // Biến toàn cục cho ArtPlayer
-    const CONSUMET_URL = 'https://api.consumet.org/meta/tmdb';
+    // 3. Logic Lấy Link Stream (Consumet)
+    async function getUniversalStream(id, type, title, s, e) {
+        // Thử dùng một Proxy khác ổn định hơn hoặc trực tiếp nếu có thể
+        const PROXY_LIST = [
+            (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+            (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
+        ];
 
-    // --- HÀM CHÍNH: LẤY LINK TỪ CONSUMET ---
-    async function getStreamFromConsumet(id, type, s = 1, e = 1) {
-        try {
-            // Bước 1: Lấy ID nội bộ của Consumet từ TMDB ID
-            const info = await fetch(`${CONSUMET_URL}/info/${id}?type=${type}`).then(res => res.json());
+        async function fetchJSON(url) {
+            for (let getProxyUrl of PROXY_LIST) {
+                try {
+                    const response = await fetch(getProxyUrl(url));
+                    if (!response.ok) continue;
 
-            let episodeId;
-            if (type === 'tv') {
-                const target = info.episodes.find(ep => ep.season === parseInt(s) && ep.number === parseInt(e));
-                episodeId = target ? target.id : info.episodes[0].id;
-            } else {
-                episodeId = info.episodes[0].id;
+                    const contentType = response.headers.get("content-type");
+                    if (contentType && contentType.includes("application/json")) {
+                        return await response.json();
+                    }
+                } catch (err) {
+                    console.error("Proxy error, trying next...");
+                }
             }
-            console.log("ID Consumet:", episodeId);
-            // Bước 2: Lấy link stream (.m3u8)
-            const sources = await fetch(`${CONSUMET_URL}/watch/${episodeId}?id=${id}`).then(res => res.json());
-
-            // Trả về link 'auto' hoặc link đầu tiên trong danh sách
-            return sources.sources.find(src => src.quality === 'auto')?.url || sources.sources[0].url;
-        } catch (err) {
-            console.warn("Consumet không tìm thấy phim này, chuyển sang server dự phòng...");
             return null;
         }
+
+        try {
+            console.log(`Đang tìm kiếm: ${title}`);
+            const isAnime = currentMovieData.genres.some(g => g.id === 16);
+
+            // 1. THỬ TMDB (Cho Phim Bộ)
+            if (!isAnime) {
+                const info = await fetchJSON(`${CONSUMET_URL}/meta/tmdb/info/${id}?type=${type}`);
+                if (info && info.episodes) {
+                    const targetEp = info.episodes.find(ep => ep.season === parseInt(s) && ep.number === parseInt(e));
+                    if (targetEp) {
+                        const watch = await fetchJSON(`${CONSUMET_URL}/meta/tmdb/watch/${targetEp.id}?id=${id}`);
+                        if (watch && watch.sources) return watch.sources.find(src => src.quality === 'auto')?.url || watch.sources[0].url;
+                    }
+                }
+            }
+
+            // 2. THỬ GOGOANIME (Cho Anime hoặc khi TMDB lỗi)
+            const search = await fetchJSON(`${CONSUMET_URL}/anime/gogoanime/${encodeURIComponent(title)}`);
+            if (search && search.results && search.results[0]) {
+                const animeId = search.results[0].id;
+                const aInfo = await fetchJSON(`${CONSUMET_URL}/anime/gogoanime/info/${animeId}`);
+                if (aInfo && aInfo.episodes) {
+                    // Với anime dài tập, tập phim có thể đánh số liên tục
+                    const aEp = aInfo.episodes.find(ep => ep.number === parseInt(e));
+                    if (aEp) {
+                        const aWatch = await fetchJSON(`${CONSUMET_URL}/anime/gogoanime/watch/${aEp.id}`);
+                        if (aWatch && aWatch.sources) return aWatch.sources.find(src => src.quality === 'default')?.url || aWatch.sources[0].url;
+                    }
+                }
+            }
+        } catch (err) {
+            console.error("Final Error:", err);
+        }
+        return null;
     }
 
-    // --- KHỞI TẠO PLAYER ---
-    function startArtPlayer(url) {
+    // 4. Player Control
+    async function playEpisode(epNum, seasonNum) {
+        document.getElementById('hero-overlay').style.display = 'none';
+        document.getElementById('embed-container').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        const container = document.getElementById('artplayer-container');
+        container.innerHTML = "<p style='color:white;text-align:center;padding-top:10%'>Đang lấy link phim sạch...</p>";
+
+        // Sử dụng Original Title để tìm kiếm chính xác hơn
+        const titleToSearch = currentMovieData.original_name || currentMovieData.original_title || currentMovieData.name;
+        const streamUrl = await getUniversalStream(movieId, mediaType, titleToSearch, seasonNum, epNum);
+        if (streamUrl) {
+            initArtPlayer(streamUrl);
+        }
+        // } else {
+        //     startFallback(mediaType === 'tv' 
+        //         ? `https://vidsrc.to/embed/tv/${movieId}/${seasonNum}/${epNum}`
+        //         : `https://vidsrc.to/embed/movie/${movieId}`);
+        // }
+    }
+
+    function initArtPlayer(url) {
         document.getElementById('artplayer-container').style.display = 'block';
         document.getElementById('movie-player-fallback').style.display = 'none';
-
         if (art) art.destroy();
         art = new ArtPlayer({
             container: '#artplayer-container',
@@ -281,83 +285,38 @@
                     }
                 }
             },
-            fullscreen: true,
-            setting: true,
-            playbackRate: true,
+            fullscreen: true, setting: true, playbackRate: true,
         });
     }
 
-    // --- DÙNG IFRAME KHI CONSUMET LỖI ---
     function startFallback(url) {
         document.getElementById('artplayer-container').style.display = 'none';
-        const iframe = document.getElementById('movie-player-fallback');
-        iframe.style.display = 'block';
-        iframe.src = url;
-    }
-    const playButton = document.getElementById('btn-play-now');
-    const embedContainer = document.getElementById('embed-container');
-    const heroOverlay = document.getElementById('hero-overlay');
-    const moviePlayer = document.getElementById('movie-player');
-
-    playButton.addEventListener('click', function () {
-        if (mediaType === 'movie') {
-            playMovie();
-        } else {
-            // Nếu là TV Show, load tập 1
-            playEpisode(1, 1);
-        }
-    });
-
-    function playMovie() {
-        heroOverlay.style.display = 'none';
-        embedContainer.style.display = 'block';
-        moviePlayer.src = `https://vidsrc.xyz/embed/movie?tmdb=${movieId}`;
-    }
-
-    async function playEpisode(epNum, seasonNum) {
-        heroOverlay.style.display = 'none';
-        embedContainer.style.display = 'block';
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-
-        const streamUrl = await getStreamFromConsumet(movieId, 'tv', seasonNum, epNum);
-
-        if (streamUrl) {
-            startArtPlayer(streamUrl);
-        } else {
-            startFallback(`https://embed.su/embed/tv/${movieId}/${seasonNum}/${epNum}`);
-        }
+        const ifr = document.getElementById('movie-player-fallback');
+        ifr.style.display = 'block';
+        ifr.src = url;
     }
 
     function closePlayer() {
-        embedContainer.style.display = 'none';
-        heroOverlay.style.display = 'block';
-        moviePlayer.src = ''; // Dừng video
+        document.getElementById('embed-container').style.display = 'none';
+        document.getElementById('hero-overlay').style.display = 'block';
+        if (art) art.pause();
+        document.getElementById('movie-player-fallback').src = '';
     }
+
+    document.getElementById('btn-play-now').onclick = () => {
+        if (mediaType === 'movie') playEpisode(1, 1);
+        else playEpisode(1, 1);
+    };
 
     fetchMovieDetails();
 
+    // Giữ nguyên hàm renderPhotos cũ của bạn
     function renderPhotos(backdrops) {
         const photoContainer = document.getElementById('photo-list');
-        const limitedPhotos = backdrops.slice(0, 910);
-
-        if (limitedPhotos.length === 0) {
-            photoContainer.innerHTML = '<p style="color:#ccc;">Không có hình ảnh nào.</p>';
-            return;
-        }
-
-        photoContainer.innerHTML = limitedPhotos.map(img => `
-        <div class="photo-item" onclick="openFullPhoto('${IMG_URL}${img.file_path}')">
-            <img src="https://image.tmdb.org/t/p/w500${img.file_path}" alt="Movie Photo" loading="lazy">
-        </div>
-    `).join('');
-    }
-
-    // Hàm mở ảnh to
-    function openFullPhoto(src) {
-        const modal = document.getElementById('photo-modal');
-        const modalImg = document.getElementById('full-photo');
-        modal.style.display = "flex";
-        modalImg.src = src;
+        if (!backdrops.length) return photoContainer.innerHTML = '<p>Không có ảnh.</p>';
+        photoContainer.innerHTML = backdrops.slice(0, 10).map(img => `
+            <div class="photo-item"><img src="https://image.tmdb.org/t/p/w500${img.file_path}"></div>
+        `).join('');
     }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
