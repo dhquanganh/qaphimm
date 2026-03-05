@@ -114,14 +114,14 @@
     const urlParams = new URLSearchParams(window.location.search);
     const movieId = urlParams.get('id');
     const mediaType = urlParams.get('type') || 'movie';
-
+    let malId;
     let currentMovieData = null;
 
     if (!movieId) window.location.href = '/';
 
     // 1. Fetch Dữ liệu từ TMDB
     async function fetchMovieDetails() {
-        const detailUrl = `${BASE_URL}/${mediaType}/${movieId}?api_key=${API_KEY}&language=vi-VN&append_to_response=credits,reviews,images&include_image_language=en,vi,null`;
+        const detailUrl = `${BASE_URL}/${mediaType}/${movieId}?api_key=${API_KEY}&append_to_response=credits,reviews,images&include_image_language=en,null`;
         try {
             const response = await fetch(detailUrl);
             currentMovieData = await response.json();
@@ -132,8 +132,9 @@
         }
     }
 
-    function renderMovieDetails(movie) {
+    async function renderMovieDetails(movie) {
         const title = movie.title || movie.name;
+        
         const year = (movie.release_date || movie.first_air_date || 'N/A').split('-')[0];
 
         document.getElementById('movie-hero').style.backgroundImage = `url(${IMG_URL}${movie.backdrop_path})`;
@@ -144,7 +145,7 @@
         document.getElementById('det-year').innerText = year;
         document.getElementById('det-languages').innerText = movie.original_language.toUpperCase();
         document.getElementById('imdb-rating').innerHTML = `<i class="fas fa-star" style="color:yellow;"></i> ${movie.vote_average.toFixed(1)} / 10`;
-
+        malId = await searchMalByTitle(title, false);
         if (mediaType === 'movie') {
             document.getElementById('det-runtime').innerText = `${movie.runtime} phút`;
             document.getElementById('episodes-section').style.display = 'none';
@@ -213,12 +214,12 @@
     function switchServer(provider, btnElement) {
         const ifr = document.getElementById('movie-player-fallback');
         let url = "";
-        let malId = getMapping(movieId);
+        
         // Cấu trúc link dựa trên provider
         if (provider === 'cc') {
             url = mediaType === 'tv'
-                ? `https://vidsrc.cc/v2/embed/anime/${malId}/${currentSea}/${currentEp}?autoPlay=true`
-                : `https://vidsrc.cc/v2/embed/movie/${movieId}`;
+                ? `https://vidsrc.cc/embed/tv?tmdb=${movieId}&sea=${currentSea}&ep=${currentEp}`
+                : `https://vsembed.ru/embed/movie/${movieId}`;
         } else if (provider === 'xyz') {
             url = mediaType === 'tv'
                 ? `https://vidsrc.xyz/embed/tv/${movieId}/${currentSea}/${currentEp}`
@@ -265,11 +266,6 @@
         modalImg.src = src;
 
     }
-    async function getMapping(tmdbId) {
-        const res = await fetch(`https://api.consumet.org/utils/mapping/${tmdbId}`);
-        const data = await res.json();
-
-        console.log("Mal ID:", data.malId);
-        console.log("AniList ID:", data.anilistId);
-    }
+    
+    
 </script>

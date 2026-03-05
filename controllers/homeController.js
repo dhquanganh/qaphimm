@@ -1,10 +1,11 @@
 
+
 class HomeController {
     homeIndex(req, res) {
         res.render('index', { title: 'Trộm Phim' });
     }
 
-    movieShow(req, res) {
+    async movieShow(req, res) {
         res.render('movieDetail');
     }
 
