@@ -145,7 +145,7 @@
         document.getElementById('det-year').innerText = year;
         document.getElementById('det-languages').innerText = movie.original_language.toUpperCase();
         document.getElementById('imdb-rating').innerHTML = `<i class="fas fa-star" style="color:yellow;"></i> ${movie.vote_average.toFixed(1)} / 10`;
-        malId = await searchMalByTitle(title, false);
+        
         if (mediaType === 'movie') {
             document.getElementById('det-runtime').innerText = `${movie.runtime} phút`;
             document.getElementById('episodes-section').style.display = 'none';
@@ -159,7 +159,7 @@
         }
 
         if (movie.credits?.cast) {
-            document.getElementById('cast-list').innerHTML = movie.credits.cast.slice(0, 6).map(actor => `
+            document.getElementById('cast-list').innerHTML = movie.credits.cast.slice(0, 9).map(actor => `
                 <div class="cast-item">
                     <img src="${actor.profile_path ? 'https://image.tmdb.org/t/p/w200' + actor.profile_path : 'https://via.placeholder.com/100x150'}" alt="${actor.name}">
                     <p>${actor.name}</p>
