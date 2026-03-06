@@ -119,7 +119,7 @@
             const response = await fetch(searchUrl);
             const data = await response.json();
             // Lọc người và lấy 5 kết quả đầu
-            const filtered = data.results.filter(item => item.media_type !== 'person').slice(0, 5);
+            const filtered = data.results.filter(item => item.media_type !== 'person').slice(0, data.results.length);
             renderDropdown(filtered);
         } catch (error) {
             console.error('Lỗi search dropdown:', error);
