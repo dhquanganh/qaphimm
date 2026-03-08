@@ -1,17 +1,31 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Detail</title>
+</head>
+<body>
 <main>
     <div id="embed-container" style="display: none;">
         <div class="player-wrapper" id="player-wrapper">
             <div id="artplayer-container"></div>
             <iframe id="movie-player-fallback" style="display:none;" allowfullscreen></iframe>
         </div>
+
+        <!-- Episode list từ KKPHIM (chỉ hiện khi có nhiều server/tập từ kkphim) -->
+        <div id="kkphim-ep-list" style="display:none; margin-top:10px;"></div>
+
         <div class="server-control">
             <p><i class="fas fa-server"></i> Chọn Server (Đổi server nếu thiếu tập hoặc lag):</p>
             <div class="server-list">
-                <button class="srv-btn active" onclick="switchServer('cc', this)">Server 1 (.cc)</button>
+                <button class="srv-btn active" onclick="switchServer('kkphim', this)">Server 1 (Vietsub)</button>
                 <button class="srv-btn" onclick="switchServer('xyz', this)">Server 2 (.xyz)</button>
                 <button class="srv-btn" onclick="switchServer('me', this)">Server 3 (.me)</button>
             </div>
         </div>
+
+        <!-- Trạng thái tìm kiếm KKPHIM -->
+        <div id="kkphim-status" style="padding:6px 12px; font-size:13px; color:#aaa;"></div>
     </div>
 
     <section class="movie-hero" id="movie-hero">
@@ -59,14 +73,14 @@
                 <div class="section-header">
                     <h3>Photos</h3>
                 </div>
-                <div class="photo-grid" id="photo-list">
-                </div>
+                <div class="photo-grid" id="photo-list"></div>
             </div>
 
             <div id="photo-modal" class="modal" onclick="this.style.display='none'">
                 <span class="close">&times;</span>
                 <img class="modal-content" id="full-photo">
             </div>
+
             <div class="card-section">
                 <div class="section-header">
                     <h3>Reviews</h3>
@@ -110,31 +124,41 @@
     const API_KEY = '17409b8620a1b64c8f444a06b2788a41';
     const BASE_URL = 'https://api.themoviedb.org/3';
     const IMG_URL = 'https://image.tmdb.org/t/p/original';
+    const KKPHIM_BASE = 'https://phimapi.com';
 
     const urlParams = new URLSearchParams(window.location.search);
     const movieId = urlParams.get('id');
     const mediaType = urlParams.get('type') || 'movie';
-    let malId;
     let currentMovieData = null;
+    let currentEp = 1;
+    let currentSea = 1;
+
+    // ====== KKPHIM State ======
+    // Lưu toàn bộ episodes từ KKPHIM theo dạng:
+    // kkphimServers = [ { server_name, episodes: [ { name, link_embed, link_m3u8 } ] } ]
+    let kkphimServers = [];
+    let kkphimFound = false;
 
     if (!movieId) window.location.href = '/';
 
-    // 1. Fetch Dữ liệu từ TMDB
+    // ====== TMDB ======
     async function fetchMovieDetails() {
-        const detailUrl = `${BASE_URL}/${mediaType}/${movieId}?api_key=${API_KEY}&append_to_response=credits,reviews,images&include_image_language=en,null`;
+        const detailUrl = `${BASE_URL}/${mediaType}/${movieId}?api_key=${API_KEY}&language=vi-VN&append_to_response=credits,reviews,images&include_image_language=en,null`;
         try {
             const response = await fetch(detailUrl);
             currentMovieData = await response.json();
             renderMovieDetails(currentMovieData);
             renderPhotos(currentMovieData.images?.backdrops || []);
+            // Tìm phim trên KKPHIM sau khi có dữ liệu TMDB
+            fetchKKPhim(currentMovieData);
         } catch (error) {
             console.error('Lỗi lấy chi tiết:', error);
         }
     }
 
     async function renderMovieDetails(movie) {
-        const title = movie.title || movie.name;
-        
+        // Ưu tiên tên tiếng Việt, fallback về tên gốc
+        const title = movie.title || movie.name || movie.original_title || movie.original_name;
         const year = (movie.release_date || movie.first_air_date || 'N/A').split('-')[0];
 
         document.getElementById('movie-hero').style.backgroundImage = `url(${IMG_URL}${movie.backdrop_path})`;
@@ -145,7 +169,7 @@
         document.getElementById('det-year').innerText = year;
         document.getElementById('det-languages').innerText = movie.original_language.toUpperCase();
         document.getElementById('imdb-rating').innerHTML = `<i class="fas fa-star" style="color:yellow;"></i> ${movie.vote_average.toFixed(1)} / 10`;
-        
+
         if (mediaType === 'movie') {
             document.getElementById('det-runtime').innerText = `${movie.runtime} phút`;
             document.getElementById('episodes-section').style.display = 'none';
@@ -168,13 +192,124 @@
         }
     }
 
-    // 2. Xử lý Season & Episode
+    // ====== KKPHIM Integration ======
+    async function fetchKKPhim(movie) {
+        const title = movie.title || movie.name;
+        setKKStatus('⏳ Đang tìm Vietsub cho "' + title + '"...');
+
+        try {
+            // Bước 1: Tìm kiếm theo tên phim
+            const searchRes = await fetch(`${KKPHIM_BASE}/v1/api/tim-kiem?keyword=${encodeURIComponent(title)}`);
+            const searchData = await searchRes.json();
+            const items = searchData?.data?.items;
+
+            if (!items || items.length === 0) {
+                setKKStatus('⚠️ Không tìm thấy Vietsub trên KKPHIM.');
+                return;
+            }
+
+            // Lọc theo năm nếu có để tránh nhầm phim
+            const year = (movie.release_date || movie.first_air_date || '').split('-')[0];
+            let matched = items[0]; // mặc định lấy kết quả đầu
+            if (year) {
+                const byYear = items.find(i => String(i.year) === String(year));
+                if (byYear) matched = byYear;
+            }
+
+            const slug = matched.slug;
+
+            // Bước 2: Lấy chi tiết phim và episodes
+            const detailRes = await fetch(`${KKPHIM_BASE}/phim/${slug}`);
+            const detailData = await detailRes.json();
+            const episodes = detailData?.episodes;
+
+            if (!episodes || episodes.length === 0) {
+                setKKStatus('⚠️ KKPHIM: Không có tập phim.');
+                return;
+            }
+
+            // Lưu lại toàn bộ server + episodes
+            kkphimServers = episodes.map(server => ({
+                server_name: server.server_name,
+                episodes: server.server_data.map(ep => ({
+                    name: ep.name,
+                    link_embed: ep.link_embed,
+                    link_m3u8: ep.link_m3u8,
+                    slug: ep.slug
+                }))
+            }));
+            kkphimFound = true;
+            setKKStatus('✅ Đã tìm thấy Vietsub: ' + matched.name);
+        } catch (err) {
+            console.error('KKPHIM error:', err);
+            setKKStatus('❌ Lỗi khi tải KKPHIM.');
+        }
+    }
+
+    function setKKStatus(msg) {
+        const el = document.getElementById('kkphim-status');
+        if (el) el.innerText = msg;
+    }
+
+    // Lấy link embed KKPHIM cho tập cụ thể
+    // epIndex: 0-based index (tập 1 = index 0)
+    // serverIndex: index của server (mặc định 0)
+    function getKKPhimEmbed(epIndex = 0, serverIndex = 0) {
+        if (!kkphimFound || kkphimServers.length === 0) return null;
+        const server = kkphimServers[Math.min(serverIndex, kkphimServers.length - 1)];
+        if (!server || server.episodes.length === 0) return null;
+        const ep = server.episodes[Math.min(epIndex, server.episodes.length - 1)];
+        return ep?.link_embed || null;
+    }
+
+    // Render danh sách tập từ KKPHIM trong embed container (phim bộ)
+    function renderKKPhimEpList(serverIndex = 0) {
+        const container = document.getElementById('kkphim-ep-list');
+        if (!kkphimFound || mediaType !== 'tv') {
+            container.style.display = 'none';
+            return;
+        }
+        const server = kkphimServers[serverIndex];
+        if (!server) return;
+
+        container.style.display = 'block';
+        container.innerHTML = `
+            <p style="margin:0 0 6px; font-size:13px; color:#aaa;">Tập (KKPHIM - ${server.server_name}):</p>
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                ${server.episodes.map((ep, idx) => `
+                    <button onclick="playKKEp(${idx})" class="kk-ep-btn" id="kk-ep-${idx}"
+                        style="padding:4px 10px; border-radius:4px; border:1px solid #555; background:#222; color:#fff; cursor:pointer; font-size:12px;">
+                        ${ep.name}
+                    </button>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    let currentKKEpIndex = 0;
+
+    function playKKEp(epIndex) {
+        currentKKEpIndex = epIndex;
+        const embedUrl = getKKPhimEmbed(epIndex);
+        if (!embedUrl) return;
+
+        const ifr = document.getElementById('movie-player-fallback');
+        ifr.style.display = 'block';
+        ifr.src = embedUrl;
+
+        // Highlight tập đang chọn
+        document.querySelectorAll('.kk-ep-btn').forEach((btn, i) => {
+            btn.style.background = i === epIndex ? '#e50914' : '#222';
+        });
+    }
+
+    // ====== Season & Episodes (TMDB) ======
     function renderSeasons(movie) {
         const section = document.getElementById('episodes-section');
         const seasonSelect = document.getElementById('season-select');
         section.style.display = 'block';
         seasonSelect.innerHTML = movie.seasons
-            .filter(s => s.season_number > 0) // Bỏ qua phần Specials nếu muốn
+            .filter(s => s.season_number > 0)
             .map(s => `<option value="${s.season_number}">Season ${s.season_number}</option>`).join('');
 
         seasonSelect.onchange = (e) => fetchEpisodes(movie.id, e.target.value);
@@ -194,78 +329,107 @@
         `).join('');
     }
 
-    let currentSea = 1;
-
     async function playEpisode(epNum, seasonNum) {
         currentEp = epNum;
         currentSea = seasonNum;
 
-        // Hiển thị trình phát
+        // Map số tập TMDB sang index KKPHIM (0-based)
+        if (kkphimFound && kkphimServers.length > 0) {
+            const eps = kkphimServers[0].episodes;
+            const matched = eps.findIndex(ep => parseInt(ep.name.replace(/[^0-9]/g, '')) === epNum);
+            currentKKEpIndex = matched >= 0 ? matched : Math.max(0, epNum - 1);
+        } else {
+            currentKKEpIndex = Math.max(0, epNum - 1);
+        }
+
         document.getElementById('hero-overlay').style.display = 'none';
         document.getElementById('embed-container').style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
-        // Mặc định luôn chạy Server 1 (.cc) khi mới bấm vào tập
         const firstBtn = document.querySelector('.srv-btn');
-        
-        switchServer('cc', firstBtn);
+        switchServer('kkphim', firstBtn);
     }
 
+    // ====== Server Switcher ======
     function switchServer(provider, btnElement) {
         const ifr = document.getElementById('movie-player-fallback');
-        let url = "";
-        
-        // Cấu trúc link dựa trên provider
-        if (provider === 'cc') {
-            url = mediaType === 'tv'
-                ? `https://vidsrc.cc/embed/tv?tmdb=${movieId}&sea=${currentSea}&ep=${currentEp}`
-                : `https://vsembed.ru/embed/movie/${movieId}`;
+        const kkEpList = document.getElementById('kkphim-ep-list');
+        let url = '';
+
+        if (provider === 'kkphim') {
+            if (kkphimFound) {
+                if (mediaType === 'tv') {
+                    // Phim bộ: render danh sách tập KKPHIM, phát tập đang chọn
+                    renderKKPhimEpList(0);
+                    url = getKKPhimEmbed(currentKKEpIndex) || '';
+                } else {
+                    // Phim lẻ: phát thẳng tập đầu
+                    kkEpList.style.display = 'none';
+                    url = getKKPhimEmbed(0) || '';
+                }
+
+                if (!url) {
+                    setKKStatus('⚠️ Không có link embed, thử server khác.');
+                }
+            } else {
+                // KKPHIM chưa tìm xong hoặc không có → fallback sang vidsrc.cc
+                kkEpList.style.display = 'none';
+                url = mediaType === 'tv'
+                    ? `https://vidsrc.cc/embed/tv?tmdb=${movieId}&sea=${currentSea}&ep=${currentEp}`
+                    : `https://vidsrc.cc/embed/movie?tmdb=${movieId}`;
+                setKKStatus('⚠️ Chưa tìm thấy Vietsub, đang dùng Server dự phòng.');
+            }
         } else if (provider === 'xyz') {
+            kkEpList.style.display = 'none';
             url = mediaType === 'tv'
                 ? `https://vidsrc.xyz/embed/tv/${movieId}/${currentSea}/${currentEp}`
                 : `https://vidsrc.xyz/embed/movie/${movieId}`;
         } else if (provider === 'me') {
+            kkEpList.style.display = 'none';
             url = mediaType === 'tv'
                 ? `https://vidsrc.me/embed/tv?tmdb=${movieId}&sea=${currentSea}&ep=${currentEp}`
                 : `https://vidsrc.me/embed/movie?tmdb=${movieId}`;
         }
 
-        // Cập nhật link cho iframe
         ifr.style.display = 'block';
         ifr.src = url;
 
-        // Đổi trạng thái nút Active
         document.querySelectorAll('.srv-btn').forEach(btn => btn.classList.remove('active'));
-        if (btnElement) {
-            btnElement.classList.add('active');
-        }
+        if (btnElement) btnElement.classList.add('active');
     }
 
-    // Khởi tạo nút Play Now ở Hero
+    // ====== Play Now button ======
     document.getElementById('btn-play-now').onclick = () => {
-        playEpisode(1, 1);
+        if (mediaType === 'tv') {
+            playEpisode(1, 1);
+        } else {
+            document.getElementById('hero-overlay').style.display = 'none';
+            document.getElementById('embed-container').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            const firstBtn = document.querySelector('.srv-btn');
+            switchServer('kkphim', firstBtn);
+        }
     };
 
+    // ====== Photos ======
     function renderPhotos(backdrops) {
         const photoContainer = document.getElementById('photo-list');
         if (!backdrops.length) return photoContainer.innerHTML = '<p>Không có ảnh.</p>';
         photoContainer.innerHTML = backdrops.slice(0, 910).map(img => `
-            <div onclick="openFullPhoto('${IMG_URL}${img.file_path}')" class="photo-item"><img src="https://image.tmdb.org/t/p/w500${img.file_path}"></div>
+            <div onclick="openFullPhoto('${IMG_URL}${img.file_path}')" class="photo-item">
+                <img src="https://image.tmdb.org/t/p/w500${img.file_path}">
+            </div>
         `).join('');
     }
 
-    fetchMovieDetails();
     function openFullPhoto(src) {
-
         const modal = document.getElementById('photo-modal');
-
         const modalImg = document.getElementById('full-photo');
-
-        modal.style.display = "flex";
-
+        modal.style.display = 'flex';
         modalImg.src = src;
-
     }
-    
-    
+
+    fetchMovieDetails();
 </script>
+</body>
+</html>
