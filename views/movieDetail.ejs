@@ -1,494 +1,501 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
-<meta charset="UTF-8">
-<title>Detail</title>
+    <meta charset="UTF-8">
+    <title>Detail</title>
 </head>
+
 <body>
-<main>
-    <div id="embed-container" style="display: none;">
-        <div class="player-wrapper" id="player-wrapper">
-            <div id="artplayer-container"></div>
-            <iframe id="movie-player-fallback" style="display:none;" allowfullscreen></iframe>
-        </div>
-
-        <!-- Episode list từ KKPHIM (chỉ hiện khi có nhiều server/tập từ kkphim) -->
-        <div id="kkphim-ep-list" style="display:none; margin-top:10px;"></div>
-
-        <div class="server-control">
-            <p><i class="fas fa-server"></i> Chọn Server (Đổi server nếu thiếu tập hoặc lag):</p>
-            <div class="server-list">
-                <button class="srv-btn active" onclick="switchServer(0, this)" id="srv-btn-0">Server 1</button>
-                <button class="srv-btn" onclick="switchServer(1, this)" id="srv-btn-1">Server 2</button>
-                <button class="srv-btn" onclick="switchServer(2, this)" id="srv-btn-2">Server 3</button>
-                <button class="srv-btn" onclick="switchServerVidsrc(this)" id="srv-btn-vidsrc" style="display:none;">VidSrc</button>
+    <main>
+        <div id="embed-container" style="display: none;">
+            <div class="player-wrapper" id="player-wrapper">
+                <div id="artplayer-container"></div>
+                <iframe id="movie-player-fallback" style="display:none;" allowfullscreen></iframe>
             </div>
+
+            <!-- Episode list từ KKPHIM (chỉ hiện khi có nhiều server/tập từ kkphim) -->
+            <div id="kkphim-ep-list" style="display:none; margin-top:10px;"></div>
+
+            <div class="server-control">
+                <p><i class="fas fa-server"></i> Chọn Server (Đổi server nếu thiếu tập hoặc lag):</p>
+                <div class="server-list">
+                    <button class="srv-btn active" onclick="switchServer(0, this)" id="srv-btn-0">Server 1</button>
+                    <button class="srv-btn" onclick="switchServer(1, this)" id="srv-btn-1">Server 2</button>
+                    <button class="srv-btn" onclick="switchServer(2, this)" id="srv-btn-2">Server 3</button>
+                    <button class="srv-btn" onclick="switchServerVidsrc(this)" id="srv-btn-vidsrc"
+                        style="display:none;">VidSrc</button>
+                </div>
+            </div>
+
+            <!-- Trạng thái tìm kiếm KKPHIM -->
+            <div id="kkphim-status" style="padding:6px 12px; font-size:13px; color:#aaa;"></div>
         </div>
 
-        <!-- Trạng thái tìm kiếm KKPHIM -->
-        <div id="kkphim-status" style="padding:6px 12px; font-size:13px; color:#aaa;"></div>
-    </div>
+        <section class="movie-hero" id="movie-hero">
+            <div class="hero-overlay" id="hero-overlay">
+                <div class="hero-info-center">
+                    <h1 id="det-title">Tên Phim</h1>
+                    <p id="det-tagline" class="tagline"></p>
+                    <div class="hero-actions">
+                        <button class="btn-play-now" id="btn-play-now"><i class="fas fa-play"></i> Play Now</button>
+                        <div class="action-icons">
+                            <button><i class="fas fa-plus"></i></button>
+                            <button><i class="fas fa-thumbs-up"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-    <section class="movie-hero" id="movie-hero">
-        <div class="hero-overlay" id="hero-overlay">
-            <div class="hero-info-center">
-                <h1 id="det-title">Tên Phim</h1>
-                <p id="det-tagline" class="tagline"></p>
-                <div class="hero-actions">
-                    <button class="btn-play-now" id="btn-play-now"><i class="fas fa-play"></i> Play Now</button>
-                    <div class="action-icons">
-                        <button><i class="fas fa-plus"></i></button>
-                        <button><i class="fas fa-thumbs-up"></i></button>
+        <div class="container detail-content">
+            <div class="col-left">
+                <div class="card-section">
+                    <h2 id="det-title-body">Tên Phim</h2>
+                    <h3>Description</h3>
+                    <p id="det-description"></p>
+                </div>
+
+                <div class="card-section" id="episodes-section" style="display: none;">
+                    <div class="section-header">
+                        <h3>Episodes / Seasons</h3>
+                        <div class="season-selector" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                            <select id="season-select" onchange="onKKPartChange(this.value)"></select>
+                            <span id="kkphim-search-indicator" style="font-size:12px; color:#aaa; display:none;">⏳ Đang
+                                tìm...</span>
+                        </div>
+                    </div>
+                    <div class="episodes-grid" id="episodes-list"></div>
+                </div>
+
+                <div class="card-section">
+                    <div class="section-header">
+                        <h3>Cast</h3>
+                    </div>
+                    <div class="cast-grid" id="cast-list"></div>
+                </div>
+
+                <div class="card-section">
+                    <div class="section-header">
+                        <h3>Photos</h3>
+                    </div>
+                    <div class="photo-grid" id="photo-list"></div>
+                </div>
+
+                <div id="photo-modal" class="modal" onclick="this.style.display='none'">
+                    <span class="close">&times;</span>
+                    <img class="modal-content" id="full-photo">
+                </div>
+
+                <div class="card-section">
+                    <div class="section-header">
+                        <h3>Reviews</h3>
+                    </div>
+                    <div class="reviews-container" id="reviews-list"></div>
+                </div>
+            </div>
+
+            <div class="col-right">
+                <div class="info-sidebar">
+                    <div class="info-item">
+                        <label><i class="far fa-clock"></i> Duration</label>
+                        <p id="det-runtime">--</p>
+                    </div>
+                    <div class="info-item">
+                        <label><i class="far fa-calendar"></i> Year</label>
+                        <p id="det-year"></p>
+                    </div>
+                    <div class="info-item">
+                        <label><i class="fas fa-language"></i> Language</label>
+                        <p id="det-languages"></p>
+                    </div>
+                    <div class="info-item">
+                        <label><i class="far fa-star"></i> Rating</label>
+                        <div class="rating-box" id="imdb-rating"></div>
+                    </div>
+                    <div class="info-item">
+                        <label><i class="fas fa-th-large"></i> Genres</label>
+                        <div class="tags" id="det-genres"></div>
+                    </div>
+                    <div class="info-item">
+                        <label>Director</label>
+                        <p id="det-director"></p>
                     </div>
                 </div>
             </div>
         </div>
-    </section>
+    </main>
 
-    <div class="container detail-content">
-        <div class="col-left">
-            <div class="card-section">
-                <h2 id="det-title-body">Tên Phim</h2>
-                <h3>Description</h3>
-                <p id="det-description"></p>
-            </div>
+    <script>
+        const API_KEY = '17409b8620a1b64c8f444a06b2788a41';
+        const BASE_URL = 'https://api.themoviedb.org/3';
+        const IMG_URL = 'https://image.tmdb.org/t/p/original';
+        const KKPHIM_BASE = 'https://phimapi.com';
 
-            <div class="card-section" id="episodes-section" style="display: none;">
-                <div class="section-header">
-                    <h3>Episodes / Seasons</h3>
-                    <div class="season-selector" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                        <select id="season-select" onchange="onKKPartChange(this.value)"></select>
-                        <span id="kkphim-search-indicator" style="font-size:12px; color:#aaa; display:none;">⏳ Đang tìm...</span>
-                    </div>
-                </div>
-                <div class="episodes-grid" id="episodes-list"></div>
-            </div>
+        const urlParams = new URLSearchParams(window.location.search);
+        const movieId = urlParams.get('id');
+        const mediaType = urlParams.get('type') || 'movie';
+        if (!movieId) window.location.href = '/';
 
-            <div class="card-section">
-                <div class="section-header">
-                    <h3>Cast</h3>
-                </div>
-                <div class="cast-grid" id="cast-list"></div>
-            </div>
+        let currentMovieData = null;
+        let currentEp = 1;
+        let currentSea = 1;
 
-            <div class="card-section">
-                <div class="section-header">
-                    <h3>Photos</h3>
-                </div>
-                <div class="photo-grid" id="photo-list"></div>
-            </div>
+        // ====== KKPHIM State ======
+        let kkphimServers = [];   // servers của slug đang active
+        let kkphimFound = false;
+        let currentKKEpIndex = 0;
+        let currentKKSlug = null;
 
-            <div id="photo-modal" class="modal" onclick="this.style.display='none'">
-                <span class="close">&times;</span>
-                <img class="modal-content" id="full-photo">
-            </div>
+        // Cache
+        const kkphimSlugCache = {};   // tmdbSeason -> [ {slug, name, part} ]
+        const kkphimServerCache = {};   // slug       -> [ {server_name, episodes:[]} ]
+        const kkphimSlugPartMap = {};   // slug       -> part number (= TMDB season number)
 
-            <div class="card-section">
-                <div class="section-header">
-                    <h3>Reviews</h3>
-                </div>
-                <div class="reviews-container" id="reviews-list"></div>
-            </div>
-        </div>
-
-        <div class="col-right">
-            <div class="info-sidebar">
-                <div class="info-item">
-                    <label><i class="far fa-clock"></i> Duration</label>
-                    <p id="det-runtime">--</p>
-                </div>
-                <div class="info-item">
-                    <label><i class="far fa-calendar"></i> Year</label>
-                    <p id="det-year"></p>
-                </div>
-                <div class="info-item">
-                    <label><i class="fas fa-language"></i> Language</label>
-                    <p id="det-languages"></p>
-                </div>
-                <div class="info-item">
-                    <label><i class="far fa-star"></i> Rating</label>
-                    <div class="rating-box" id="imdb-rating"></div>
-                </div>
-                <div class="info-item">
-                    <label><i class="fas fa-th-large"></i> Genres</label>
-                    <div class="tags" id="det-genres"></div>
-                </div>
-                <div class="info-item">
-                    <label>Director</label>
-                    <p id="det-director"></p>
-                </div>
-            </div>
-        </div>
-    </div>
-</main>
-
-<script>
-    const API_KEY    = '17409b8620a1b64c8f444a06b2788a41';
-    const BASE_URL   = 'https://api.themoviedb.org/3';
-    const IMG_URL    = 'https://image.tmdb.org/t/p/original';
-    const KKPHIM_BASE = 'https://phimapi.com';
-
-    const urlParams  = new URLSearchParams(window.location.search);
-    const movieId    = urlParams.get('id');
-    const mediaType  = urlParams.get('type') || 'movie';
-    if (!movieId) window.location.href = '/';
-
-    let currentMovieData = null;
-    let currentEp        = 1;
-    let currentSea       = 1;
-
-    // ====== KKPHIM State ======
-    let kkphimServers = [];   // servers của slug đang active
-    let kkphimFound   = false;
-    let currentKKEpIndex = 0;
-    let currentKKSlug    = null;
-
-    // Cache
-    const kkphimSlugCache   = {};   // tmdbSeason -> [ {slug, name, part} ]
-    const kkphimServerCache = {};   // slug       -> [ {server_name, episodes:[]} ]
-    const kkphimSlugPartMap = {};   // slug       -> part number (= TMDB season number)
-
-    // =====================================================================
-    //  TMDB – chỉ dùng cho info phim (title, poster, cast, photos...), KHÔNG dùng episodes
-    // =====================================================================
-    async function fetchMovieDetails() {
-        const url = `${BASE_URL}/${mediaType}/${movieId}?api_key=${API_KEY}&language=vi-VN&append_to_response=credits,reviews,images&include_image_language=en,null`;
-        try {
-            const res = await fetch(url);
-            currentMovieData = await res.json();
-            renderMovieDetails(currentMovieData);
-            renderPhotos(currentMovieData.images?.backdrops || []);
-            // Nếu là TV → tìm KKPHIM và render episode list từ KK
-            if (mediaType === 'tv') {
-                document.getElementById('episodes-section').style.display = 'block';
-                await fetchKKPhimAndRenderSeasons(currentMovieData);
-            } else {
-                // Phim lẻ: tìm luôn
-                fetchKKPhim(currentMovieData);
+        // =====================================================================
+        //  TMDB – chỉ dùng cho info phim (title, poster, cast, photos...), KHÔNG dùng episodes
+        // =====================================================================
+        async function fetchMovieDetails() {
+            const url = `${BASE_URL}/${mediaType}/${movieId}?api_key=${API_KEY}&language=vi-VN&append_to_response=credits,reviews,images&include_image_language=en,null`;
+            try {
+                const res = await fetch(url);
+                currentMovieData = await res.json();
+                renderMovieDetails(currentMovieData);
+                renderPhotos(currentMovieData.images?.backdrops || []);
+                // Nếu là TV → tìm KKPHIM và render episode list từ KK
+                if (mediaType === 'tv') {
+                    document.getElementById('episodes-section').style.display = 'block';
+                    await fetchKKPhimAndRenderSeasons(currentMovieData);
+                } else {
+                    // Phim lẻ: tìm luôn
+                    fetchKKPhim(currentMovieData);
+                }
+            } catch (e) {
+                console.error('Lỗi TMDB:', e);
             }
-        } catch (e) {
-            console.error('Lỗi TMDB:', e);
-        }
-    }
-
-    async function renderMovieDetails(movie) {
-        switch(movieId){
-            case "63926":
-                movie.name = "One Punch Man";
-                break;
-            case "372058":
-                movie.title = "Tên cậu là gì";
-                break;
-            case "76479":
-                movie.name = "Siêu anh hùng phá hoại";
-                break;
-            case "431819":
-                movie.title = "Pháo Hoa, Nên Ngắm Từ Dưới Hay Bên Cạnh";
-                break
-        }   
-        const title = movie.title || movie.name || movie.original_title || movie.original_name;
-        const year  = (movie.release_date || movie.first_air_date || 'N/A').split('-')[0];
-        document.getElementById('movie-hero').style.backgroundImage = `url(${IMG_URL}${movie.backdrop_path})`;
-        document.getElementById('det-title').innerText      = title;
-        document.getElementById('det-title-body').innerText = title;
-        document.getElementById('det-tagline').innerText    = movie.tagline || '';
-        document.getElementById('det-description').innerText = movie.overview || 'Không có mô tả.';
-        document.getElementById('det-year').innerText       = year;
-        document.getElementById('det-languages').innerText  = movie.original_language.toUpperCase();
-        document.getElementById('imdb-rating').innerHTML    =
-            `<i class="fas fa-star" style="color:yellow;"></i> ${movie.vote_average.toFixed(1)} / 10`;
-
-        if (mediaType === 'movie') {
-            document.getElementById('det-runtime').innerText = `${movie.runtime} phút`;
-            document.getElementById('episodes-section').style.display = 'none';
-        } else {
-            document.getElementById('det-runtime').innerText =
-                movie.episode_run_time?.[0] ? `${movie.episode_run_time[0]} phút/tập` : 'N/A';
         }
 
-        if (movie.genres) {
-            document.getElementById('det-genres').innerHTML =
-                movie.genres.map(g => `<span>${g.name}</span>`).join('');
-        }
+        async function renderMovieDetails(movie) {
+            switch (movieId) {
+                case "63926":
+                    movie.name = "One Punch Man";
+                    break;
+                case "372058":
+                    movie.title = "Tên cậu là gì";
+                    break;
+                case "76479":
+                    movie.name = "Siêu anh hùng phá hoại";
+                    break;
+                case "431819":
+                    movie.title = "Pháo Hoa, Nên Ngắm Từ Dưới Hay Bên Cạnh";
+                    break
+                case "42589":
+                    movie.name = "Bóng Đêm Kinh Hoàng";
+                    break;
+            }
+            const title = movie.title || movie.name || movie.original_title || movie.original_name;
+            const year = (movie.release_date || movie.first_air_date || 'N/A').split('-')[0];
+            document.getElementById('movie-hero').style.backgroundImage = `url(${IMG_URL}${movie.backdrop_path})`;
+            document.getElementById('det-title').innerText = title;
+            document.getElementById('det-title-body').innerText = title;
+            document.getElementById('det-tagline').innerText = movie.tagline || '';
+            document.getElementById('det-description').innerText = movie.overview || 'Không có mô tả.';
+            document.getElementById('det-year').innerText = year;
+            document.getElementById('det-languages').innerText = movie.original_language.toUpperCase();
+            document.getElementById('imdb-rating').innerHTML =
+                `<i class="fas fa-star" style="color:yellow;"></i> ${movie.vote_average.toFixed(1)} / 10`;
 
-        if (movie.credits?.cast) {
-            document.getElementById('cast-list').innerHTML =
-                movie.credits.cast.slice(0, 9).map(a => `
+            if (mediaType === 'movie') {
+                document.getElementById('det-runtime').innerText = `${movie.runtime} phút`;
+                document.getElementById('episodes-section').style.display = 'none';
+            } else {
+                document.getElementById('det-runtime').innerText =
+                    movie.episode_run_time?.[0] ? `${movie.episode_run_time[0]} phút/tập` : 'N/A';
+            }
+
+            if (movie.genres) {
+                document.getElementById('det-genres').innerHTML =
+                    movie.genres.map(g => `<span>${g.name}</span>`).join('');
+            }
+
+            if (movie.credits?.cast) {
+                document.getElementById('cast-list').innerHTML =
+                    movie.credits.cast.slice(0, 9).map(a => `
                     <div class="cast-item">
                         <img src="${a.profile_path ? 'https://image.tmdb.org/t/p/w200' + a.profile_path : 'https://via.placeholder.com/100x150'}" alt="${a.name}">
                         <p>${a.name}</p>
                     </div>`).join('');
+            }
         }
-    }
 
-    // =====================================================================
-    //  KKPHIM – tìm tất cả slug của phim (TV: theo season; movie: 1 slug)
-    // =====================================================================
-    async function findKKPhimSlugs(movie, seasonNum) {
-        if (kkphimSlugCache[seasonNum]) return kkphimSlugCache[seasonNum];
+        // =====================================================================
+        //  KKPHIM – tìm tất cả slug của phim (TV: theo season; movie: 1 slug)
+        // =====================================================================
+        async function findKKPhimSlugs(movie, seasonNum) {
+            if (kkphimSlugCache[seasonNum]) return kkphimSlugCache[seasonNum];
 
-        const viTitle   = movie.title || movie.name;
-        const origTitle = movie.original_title || movie.original_name || viTitle;
+            const viTitle = movie.title || movie.name;
+            const origTitle = movie.original_title || movie.original_name || viTitle;
 
-        const queries = seasonNum > 1
-            ? [`${viTitle} phan ${seasonNum}`, `${viTitle} season ${seasonNum}`,
-               `${origTitle} season ${seasonNum}`, viTitle, origTitle]
-            : [viTitle, origTitle];
+            const queries = seasonNum > 1
+                ? [`${viTitle} phan ${seasonNum}`, `${viTitle} season ${seasonNum}`,
+                `${origTitle} season ${seasonNum}`, viTitle, origTitle]
+                : [viTitle, origTitle];
 
-        const seen   = new Set();
-        const result = [];
+            const seen = new Set();
+            const result = [];
 
-        for (const q of queries) {
-            try {
-                const res   = await fetch(`${KKPHIM_BASE}/v1/api/tim-kiem?keyword=${encodeURIComponent(q)}`);
-                const data  = await res.json();
-                const items = data?.data?.items || [];
+            for (const q of queries) {
+                try {
+                    const res = await fetch(`${KKPHIM_BASE}/v1/api/tim-kiem?keyword=${encodeURIComponent(q)}`);
+                    const data = await res.json();
+                    const items = data?.data?.items || [];
 
-                for (const item of items) {
-                    if (seen.has(item.slug)) continue;
-                    const s = (item.slug + ' ' + item.name).toLowerCase();
+                    for (const item of items) {
+                        if (seen.has(item.slug)) continue;
+                        const s = (item.slug + ' ' + item.name).toLowerCase();
 
-                    // Bỏ qua nếu slug thuộc phần khác rõ ràng
-                    let otherPart = false;
-                    for (let p = 1; p <= 20; p++) {
-                        if (p === seasonNum) continue;
-                        if (s.includes('phan-' + p) || s.includes('phan ' + p) ||
-                            s.includes('season-' + p) || s.includes('season ' + p)) {
-                            otherPart = true; break;
+                        // Bỏ qua nếu slug thuộc phần khác rõ ràng
+                        let otherPart = false;
+                        for (let p = 1; p <= 20; p++) {
+                            if (p === seasonNum) continue;
+                            if (s.includes('phan-' + p) || s.includes('phan ' + p) ||
+                                s.includes('season-' + p) || s.includes('season ' + p)) {
+                                otherPart = true; break;
+                            }
                         }
+                        if (otherPart) continue;
+
+                        const shortVI = viTitle.toLowerCase().slice(0, 8);
+                        const shortOrig = origTitle.toLowerCase().slice(0, 8);
+                        if (!s.includes(shortVI) && !s.includes(shortOrig) && result.length > 0) continue;
+
+                        // Detect số phần
+                        let partNum = seasonNum;
+                        const pm = s.match(/phan[-_ ]?(\d+)|season[-_ ]?(\d+)/);
+                        if (pm) partNum = parseInt(pm[1] || pm[2]);
+
+                        seen.add(item.slug);
+                        result.push({ slug: item.slug, name: item.name, part: partNum });
                     }
-                    if (otherPart) continue;
+                } catch (e) { /* ignore */ }
+            }
 
-                    const shortVI   = viTitle.toLowerCase().slice(0, 8);
-                    const shortOrig = origTitle.toLowerCase().slice(0, 8);
-                    if (!s.includes(shortVI) && !s.includes(shortOrig) && result.length > 0) continue;
-
-                    // Detect số phần
-                    let partNum = seasonNum;
-                    const pm = s.match(/phan[-_ ]?(\d+)|season[-_ ]?(\d+)/);
-                    if (pm) partNum = parseInt(pm[1] || pm[2]);
-
-                    seen.add(item.slug);
-                    result.push({ slug: item.slug, name: item.name, part: partNum });
-                }
-            } catch (e) { /* ignore */ }
+            result.sort((a, b) => a.part - b.part);
+            kkphimSlugCache[seasonNum] = result;
+            return result;
         }
 
-        result.sort((a, b) => a.part - b.part);
-        kkphimSlugCache[seasonNum] = result;
-        return result;
-    }
+        // Cache ảnh KKPHIM theo slug
+        const kkphimImageCache = {};  // slug -> { thumb_url, poster_url }
 
-    // Cache ảnh KKPHIM theo slug
-    const kkphimImageCache = {};  // slug -> { thumb_url, poster_url }
+        async function loadKKPhimBySlug(slug) {
+            if (kkphimServerCache[slug]) {
+                kkphimServers = kkphimServerCache[slug];
+                kkphimFound = true;
+                currentKKSlug = slug;
+                updateHeroFromKK(slug);
+                return true;
+            }
+            try {
+                const res = await fetch(`${KKPHIM_BASE}/phim/${slug}`);
+                const data = await res.json();
+                const eps = data?.episodes;
+                if (!eps || eps.length === 0) return false;
 
-    async function loadKKPhimBySlug(slug) {
-        if (kkphimServerCache[slug]) {
-            kkphimServers = kkphimServerCache[slug];
-            kkphimFound   = true;
-            currentKKSlug = slug;
-            updateHeroFromKK(slug);
-            return true;
-        }
-        try {
-            const res  = await fetch(`${KKPHIM_BASE}/phim/${slug}`);
-            const data = await res.json();
-            const eps  = data?.episodes;
-            if (!eps || eps.length === 0) return false;
+                const servers = eps.map(sv => ({
+                    server_name: sv.server_name,
+                    episodes: sv.server_data.map(ep => ({
+                        name: ep.name, link_embed: ep.link_embed,
+                        link_m3u8: ep.link_m3u8, slug: ep.slug
+                    }))
+                }));
+                kkphimServerCache[slug] = servers;
 
-            const servers = eps.map(sv => ({
-                server_name: sv.server_name,
-                episodes: sv.server_data.map(ep => ({
-                    name: ep.name, link_embed: ep.link_embed,
-                    link_m3u8: ep.link_m3u8, slug: ep.slug
-                }))
-            }));
-            kkphimServerCache[slug] = servers;
+                // Lưu cache ảnh từ KKPHIM
+                const movie = data.movie || data;
+                kkphimImageCache[slug] = {
+                    thumb_url: movie.thumb_url || movie.thumbUrl || null,
+                    poster_url: movie.poster_url || movie.posterUrl || null,
+                    name: movie.name || movie.title || null
+                };
 
-            // Lưu cache ảnh từ KKPHIM
-            const movie = data.movie || data;
-            kkphimImageCache[slug] = {
-                thumb_url:  movie.thumb_url  || movie.thumbUrl  || null,
-                poster_url: movie.poster_url || movie.posterUrl || null,
-                name:       movie.name || movie.title || null
-            };
-
-            kkphimServers  = servers;
-            kkphimFound    = true;
-            currentKKSlug  = slug;
-            updateHeroFromKK(slug);
-            return true;
-        } catch (e) { return false; }
-    }
-
-    // Cập nhật backdrop hero và photos khi đổi slug KKPHIM
-    function updateHeroFromKK(slug) {
-        const img = kkphimImageCache[slug];
-        if (!img) return;
-
-        const hero = document.getElementById('movie-hero');
-
-        // Ưu tiên thumb_url (landscape) làm backdrop, fallback poster
-        const backdrop = img.thumb_url || img.poster_url;
-        if (backdrop && hero) {
-            hero.style.backgroundImage = `url(${backdrop})`;
+                kkphimServers = servers;
+                kkphimFound = true;
+                currentKKSlug = slug;
+                updateHeroFromKK(slug);
+                return true;
+            } catch (e) { return false; }
         }
 
-        // Cập nhật photo grid bằng ảnh KKPHIM nếu có
-        const photoContainer = document.getElementById('photo-list');
-        if (photoContainer && (img.thumb_url || img.poster_url)) {
-            const imgs = [img.thumb_url, img.poster_url].filter(Boolean);
-            // Chỉ ghi đè nếu chưa có ảnh TMDB (hoặc đang đổi season)
-            const existing = photoContainer.querySelectorAll('img');
-            if (existing.length === 0) {
-                photoContainer.innerHTML = imgs.map(src => `
+        // Cập nhật backdrop hero và photos khi đổi slug KKPHIM
+        function updateHeroFromKK(slug) {
+            const img = kkphimImageCache[slug];
+            if (!img) return;
+
+            const hero = document.getElementById('movie-hero');
+
+            // Ưu tiên thumb_url (landscape) làm backdrop, fallback poster
+            const backdrop = img.thumb_url || img.poster_url;
+            if (backdrop && hero) {
+                hero.style.backgroundImage = `url(${backdrop})`;
+            }
+
+            // Cập nhật photo grid bằng ảnh KKPHIM nếu có
+            const photoContainer = document.getElementById('photo-list');
+            if (photoContainer && (img.thumb_url || img.poster_url)) {
+                const imgs = [img.thumb_url, img.poster_url].filter(Boolean);
+                // Chỉ ghi đè nếu chưa có ảnh TMDB (hoặc đang đổi season)
+                const existing = photoContainer.querySelectorAll('img');
+                if (existing.length === 0) {
+                    photoContainer.innerHTML = imgs.map(src => `
                     <div onclick="openFullPhoto('${src}')" class="photo-item">
                         <img src="${src}">
                     </div>`).join('');
-            }
-        }
-    }
-
-    // Phim lẻ: tìm 1 slug và load
-    async function fetchKKPhim(movie) {
-        setKKStatus('⏳ Đang tìm Vietsub...');
-        const slugs = await findKKPhimSlugs(movie, 1);
-        if (!slugs.length) {
-            setKKStatus('⚠️ Không tìm thấy Vietsub. Đang dùng VidSrc.');
-            const vidsrcBtn = document.getElementById('srv-btn-vidsrc');
-            if (vidsrcBtn) { vidsrcBtn.style.display = ''; }
-            updateServerButtons();
-            // Phim lẻ: phát vidsrc luôn
-            const ifr = document.getElementById('movie-player-fallback');
-            if (ifr) { ifr.style.display = 'block'; ifr.src = `https://vidsrcme.ru/embed/movie?tmdb=${movieId}`; }
-            return;
-        }
-        const ok = await loadKKPhimBySlug(slugs[0].slug);
-        if (ok) { updateServerButtons(); }
-        setKKStatus(ok ? '✅ ' + slugs[0].name : '⚠️ Không có link embed.');
-    }
-
-    // =====================================================================
-    //  TV – tìm tất cả phần KKPHIM, render season selector + episode list
-    // =====================================================================
-    async function fetchKKPhimAndRenderSeasons(movie) {
-        showKKSearching(true);
-        setKKStatus('⏳ Đang tìm danh sách phần...');
-
-        // Tìm slug cho season/phần 1 trước, rồi tìm thêm các phần tiếp theo
-        const allSlugs = [];
-        for (let s = 1; s <= 20; s++) {
-            const slugs = await findKKPhimSlugs(movie, s);
-            if (slugs.length === 0) break; // không còn phần nào nữa
-            for (const sl of slugs) {
-                if (!allSlugs.find(x => x.slug === sl.slug)) allSlugs.push(sl);
+                }
             }
         }
 
-        showKKSearching(false);
+        // Phim lẻ: tìm 1 slug và load
+        async function fetchKKPhim(movie) {
+            setKKStatus('⏳ Đang tìm Vietsub...');
+            const slugs = await findKKPhimSlugs(movie, 1);
+            if (!slugs.length) {
+                setKKStatus('⚠️ Không tìm thấy Vietsub. Đang dùng VidSrc.');
+                const vidsrcBtn = document.getElementById('srv-btn-vidsrc');
+                if (vidsrcBtn) { vidsrcBtn.style.display = ''; }
+                updateServerButtons();
+                // Phim lẻ: phát vidsrc luôn
+                const ifr = document.getElementById('movie-player-fallback');
+                if (ifr) { ifr.style.display = 'block'; ifr.src = `https://vidsrcme.ru/embed/movie?tmdb=${movieId}`; }
+                return;
+            }
+            const ok = await loadKKPhimBySlug(slugs[0].slug);
+            if (ok) { updateServerButtons(); }
+            setKKStatus(ok ? '✅ ' + slugs[0].name : '⚠️ Không có link embed.');
+        }
 
-        if (allSlugs.length === 0) {
-            setKKStatus('⚠️ Không tìm thấy Vietsub. Đang dùng VidSrc.');
-            document.getElementById('season-select').style.display = 'none';
-            const vidsrcBtn = document.getElementById('srv-btn-vidsrc');
-            if (vidsrcBtn) { vidsrcBtn.style.display = ''; }
+        // =====================================================================
+        //  TV – tìm tất cả phần KKPHIM, render season selector + episode list
+        // =====================================================================
+        async function fetchKKPhimAndRenderSeasons(movie) {
+            showKKSearching(true);
+            setKKStatus('⏳ Đang tìm danh sách phần...');
+
+            // Tìm slug cho season/phần 1 trước, rồi tìm thêm các phần tiếp theo
+            const allSlugs = [];
+            for (let s = 1; s <= 20; s++) {
+                const slugs = await findKKPhimSlugs(movie, s);
+                if (slugs.length === 0) break; // không còn phần nào nữa
+                for (const sl of slugs) {
+                    if (!allSlugs.find(x => x.slug === sl.slug)) allSlugs.push(sl);
+                }
+            }
+
+            showKKSearching(false);
+
+            if (allSlugs.length === 0) {
+                setKKStatus('⚠️ Không tìm thấy Vietsub. Đang dùng VidSrc.');
+                document.getElementById('season-select').style.display = 'none';
+                const vidsrcBtn = document.getElementById('srv-btn-vidsrc');
+                if (vidsrcBtn) { vidsrcBtn.style.display = ''; }
+                updateServerButtons();
+                return;
+            }
+
+            // Lưu map slug → part number
+            allSlugs.forEach((sl, i) => {
+                kkphimSlugPartMap[sl.slug] = sl.part || (i + 1);
+            });
+
+            // Render season dropdown từ KKPHIM slugs
+            const sel = document.getElementById('season-select');
+            sel.innerHTML = allSlugs.map(sl =>
+                `<option value="${sl.slug}">${sl.name}</option>`
+            ).join('');
+            sel.style.display = '';
+
+            // Load phần đầu tiên
+            await onKKPartChange(allSlugs[0].slug);
+        }
+
+        // Cache TMDB episode thumbs: tmdbThumbCache[seasonNum] = { epNum: still_path }
+        const tmdbThumbCache = {};
+
+        async function fetchTmdbThumbs(seasonNum) {
+            if (tmdbThumbCache[seasonNum]) return tmdbThumbCache[seasonNum];
+            try {
+                const res = await fetch(`${BASE_URL}/tv/${movieId}/season/${seasonNum}?api_key=${API_KEY}`);
+                const data = await res.json();
+                const map = {};
+                (data.episodes || []).forEach(ep => {
+                    if (ep.still_path) map[ep.episode_number] = ep.still_path;
+                });
+                tmdbThumbCache[seasonNum] = map;
+                return map;
+            } catch (e) { return {}; }
+        }
+
+        // Detect số tập từ tên KKPHIM (vd: "Tập 3" → 3, "EP 03" → 3)
+        function parseEpNum(name) {
+            const m = name.match(/(\d+)/);
+            return m ? parseInt(m[1]) : null;
+        }
+
+        // Khi user chọn phần từ dropdown (hoặc auto load)
+        async function onKKPartChange(slug) {
+            currentKKEpIndex = 0;
+            showKKSearching(true);
+
+            const ok = await loadKKPhimBySlug(slug);
+            showKKSearching(false);
+
+            if (!ok) {
+                setKKStatus('❌ Không tải được phần này.');
+                document.getElementById('episodes-list').innerHTML = '<p style="color:#aaa; padding:10px;">Không có tập phim.</p>';
+                return;
+            }
+
+            const name = document.getElementById('season-select')?.selectedOptions[0]?.text || slug;
+            setKKStatus('✅ ' + name);
             updateServerButtons();
-            return;
+
+            // Render ngay với placeholder, rồi điền thumb sau
+            renderKKEpisodeList({});
+
+            // Fetch TMDB thumbs dùng đúng season number của slug này
+            if (mediaType === 'tv') {
+                const tmdbSeason = kkphimSlugPartMap[slug] || currentSea;
+                currentSea = tmdbSeason;
+                fetchTmdbThumbs(tmdbSeason).then(thumbMap => {
+                    renderKKEpisodeList(thumbMap);
+                });
+            }
+
+            // Cập nhật player nếu embed đang mở
+            const embedVisible = document.getElementById('embed-container').style.display !== 'none';
+            if (embedVisible) renderKKPhimEpList(0);
         }
 
-        // Lưu map slug → part number
-        allSlugs.forEach((sl, i) => {
-            kkphimSlugPartMap[sl.slug] = sl.part || (i + 1);
-        });
-
-        // Render season dropdown từ KKPHIM slugs
-        const sel = document.getElementById('season-select');
-        sel.innerHTML = allSlugs.map(sl =>
-            `<option value="${sl.slug}">${sl.name}</option>`
-        ).join('');
-        sel.style.display = '';
-
-        // Load phần đầu tiên
-        await onKKPartChange(allSlugs[0].slug);
-    }
-
-    // Cache TMDB episode thumbs: tmdbThumbCache[seasonNum] = { epNum: still_path }
-    const tmdbThumbCache = {};
-
-    async function fetchTmdbThumbs(seasonNum) {
-        if (tmdbThumbCache[seasonNum]) return tmdbThumbCache[seasonNum];
-        try {
-            const res  = await fetch(`${BASE_URL}/tv/${movieId}/season/${seasonNum}?api_key=${API_KEY}`);
-            const data = await res.json();
-            const map  = {};
-            (data.episodes || []).forEach(ep => {
-                if (ep.still_path) map[ep.episode_number] = ep.still_path;
-            });
-            tmdbThumbCache[seasonNum] = map;
-            return map;
-        } catch (e) { return {}; }
-    }
-
-    // Detect số tập từ tên KKPHIM (vd: "Tập 3" → 3, "EP 03" → 3)
-    function parseEpNum(name) {
-        const m = name.match(/(\d+)/);
-        return m ? parseInt(m[1]) : null;
-    }
-
-    // Khi user chọn phần từ dropdown (hoặc auto load)
-    async function onKKPartChange(slug) {
-        currentKKEpIndex = 0;
-        showKKSearching(true);
-
-        const ok = await loadKKPhimBySlug(slug);
-        showKKSearching(false);
-
-        if (!ok) {
-            setKKStatus('❌ Không tải được phần này.');
-            document.getElementById('episodes-list').innerHTML = '<p style="color:#aaa; padding:10px;">Không có tập phim.</p>';
-            return;
-        }
-
-        const name = document.getElementById('season-select')?.selectedOptions[0]?.text || slug;
-        setKKStatus('✅ ' + name);
-        updateServerButtons();
-
-        // Render ngay với placeholder, rồi điền thumb sau
-        renderKKEpisodeList({});
-
-        // Fetch TMDB thumbs dùng đúng season number của slug này
-        if (mediaType === 'tv') {
-            const tmdbSeason = kkphimSlugPartMap[slug] || currentSea;
-            currentSea = tmdbSeason;
-            fetchTmdbThumbs(tmdbSeason).then(thumbMap => {
-                renderKKEpisodeList(thumbMap);
-            });
-        }
-
-        // Cập nhật player nếu embed đang mở
-        const embedVisible = document.getElementById('embed-container').style.display !== 'none';
-        if (embedVisible) renderKKPhimEpList(0);
-    }
-
-    // Render danh sách tập bên dưới (episode cards) từ KKPHIM + thumb TMDB
-    function renderKKEpisodeList(thumbMap = {}) {
-        const container = document.getElementById('episodes-list');
-        if (!kkphimFound || kkphimServers.length === 0) {
-            container.innerHTML = '<p style="color:#aaa; padding:10px;">Không có tập phim.</p>';
-            return;
-        }
-        const eps = kkphimServers[0].episodes;
-        container.innerHTML = eps.map((ep, idx) => {
-            const epNum   = parseEpNum(ep.name);
-            const still   = epNum && thumbMap[epNum]
-                ? `https://image.tmdb.org/t/p/w300${thumbMap[epNum]}`
-                : null;
-            const thumb   = still
-                ? `<img src="${still}" alt="${ep.name}" style="width:100%; height:100%; object-fit:cover; display:block;">`
-                : `<div style="width:100%; height:100%; background:#1a1a1a; display:flex; align-items:center; justify-content:center;">
+        // Render danh sách tập bên dưới (episode cards) từ KKPHIM + thumb TMDB
+        function renderKKEpisodeList(thumbMap = {}) {
+            const container = document.getElementById('episodes-list');
+            if (!kkphimFound || kkphimServers.length === 0) {
+                container.innerHTML = '<p style="color:#aaa; padding:10px;">Không có tập phim.</p>';
+                return;
+            }
+            const eps = kkphimServers[0].episodes;
+            container.innerHTML = eps.map((ep, idx) => {
+                const epNum = parseEpNum(ep.name);
+                const still = epNum && thumbMap[epNum]
+                    ? `https://image.tmdb.org/t/p/w300${thumbMap[epNum]}`
+                    : null;
+                const thumb = still
+                    ? `<img src="${still}" alt="${ep.name}" style="width:100%; height:100%; object-fit:cover; display:block;">`
+                    : `<div style="width:100%; height:100%; background:#1a1a1a; display:flex; align-items:center; justify-content:center;">
                        <span style="font-size:20px; color:#aaa; font-weight:bold;">${ep.name}</span>
                    </div>`;
-            return `
+                return `
             <div class="episode-card" onclick="playKKEpFromCard(${idx})" style="cursor:pointer;">
                 <div class="episode-card-thumb" style="position:relative; width:100%; aspect-ratio:16/9; overflow:hidden; background:#111; border-radius:6px 6px 0 0;">
                     ${thumb}
@@ -496,49 +503,49 @@
                 </div>
                 <div class="episode-card-info"><p>${ep.name}</p></div>
             </div>`;
-        }).join('');
-    }
+            }).join('');
+        }
 
-    // Click episode card → mở player và phát
-    function playKKEpFromCard(epIndex) {
-        currentKKEpIndex = epIndex;
-        document.getElementById('hero-overlay').style.display = 'none';
-        document.getElementById('embed-container').style.display = 'block';
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        // Click episode card → mở player và phát
+        function playKKEpFromCard(epIndex) {
+            currentKKEpIndex = epIndex;
+            document.getElementById('hero-overlay').style.display = 'none';
+            document.getElementById('embed-container').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
 
-        const firstBtn = document.querySelector('.srv-btn');
-        switchServer(0, firstBtn);
-    }
+            const firstBtn = document.querySelector('.srv-btn');
+            switchServer(0, firstBtn);
+        }
 
-    // =====================================================================
-    //  Player – ep list bên trong embed container
-    // =====================================================================
-    function setKKStatus(msg) {
-        const el = document.getElementById('kkphim-status');
-        if (el) el.innerText = msg;
-    }
+        // =====================================================================
+        //  Player – ep list bên trong embed container
+        // =====================================================================
+        function setKKStatus(msg) {
+            const el = document.getElementById('kkphim-status');
+            if (el) el.innerText = msg;
+        }
 
-    function showKKSearching(show) {
-        const el = document.getElementById('kkphim-search-indicator');
-        if (el) el.style.display = show ? 'inline' : 'none';
-    }
+        function showKKSearching(show) {
+            const el = document.getElementById('kkphim-search-indicator');
+            if (el) el.style.display = show ? 'inline' : 'none';
+        }
 
-    function getKKPhimEmbed(epIndex = 0, serverIndex = 0) {
-        if (!kkphimFound || kkphimServers.length === 0) return null;
-        const server = kkphimServers[Math.min(serverIndex, kkphimServers.length - 1)];
-        if (!server || server.episodes.length === 0) return null;
-        const ep = server.episodes[Math.min(epIndex, server.episodes.length - 1)];
-        return ep?.link_embed || null;
-    }
+        function getKKPhimEmbed(epIndex = 0, serverIndex = 0) {
+            if (!kkphimFound || kkphimServers.length === 0) return null;
+            const server = kkphimServers[Math.min(serverIndex, kkphimServers.length - 1)];
+            if (!server || server.episodes.length === 0) return null;
+            const ep = server.episodes[Math.min(epIndex, server.episodes.length - 1)];
+            return ep?.link_embed || null;
+        }
 
-    function renderKKPhimEpList(serverIndex = 0) {
-        const container = document.getElementById('kkphim-ep-list');
-        if (!kkphimFound || mediaType !== 'tv') { container.style.display = 'none'; return; }
-        const server = kkphimServers[serverIndex];
-        if (!server) return;
+        function renderKKPhimEpList(serverIndex = 0) {
+            const container = document.getElementById('kkphim-ep-list');
+            if (!kkphimFound || mediaType !== 'tv') { container.style.display = 'none'; return; }
+            const server = kkphimServers[serverIndex];
+            if (!server) return;
 
-        container.style.display = 'block';
-        container.innerHTML = `
+            container.style.display = 'block';
+            container.innerHTML = `
             <p style="margin:0 0 6px; font-size:13px; color:#aaa;">Chọn tập (${server.server_name}):</p>
             <div style="display:flex; flex-wrap:wrap; gap:6px;">
                 ${server.episodes.map((ep, idx) => `
@@ -549,133 +556,134 @@
                         ${ep.name}
                     </button>`).join('')}
             </div>`;
-    }
+        }
 
-    function playKKEp(epIndex) {
-        currentKKEpIndex = epIndex;
-        const url = getKKPhimEmbed(epIndex);
-        if (!url) return;
-        const ifr = document.getElementById('movie-player-fallback');
-        ifr.style.display = 'block';
-        ifr.src = url;
-        document.querySelectorAll('.kk-ep-btn').forEach((btn, i) => {
-            btn.style.background = i === epIndex ? '#e50914' : '#222';
-        });
-    }
+        function playKKEp(epIndex) {
+            currentKKEpIndex = epIndex;
+            const url = getKKPhimEmbed(epIndex);
+            if (!url) return;
+            const ifr = document.getElementById('movie-player-fallback');
+            ifr.style.display = 'block';
+            ifr.src = url;
+            document.querySelectorAll('.kk-ep-btn').forEach((btn, i) => {
+                btn.style.background = i === epIndex ? '#e50914' : '#222';
+            });
+        }
 
-    // =====================================================================
-    //  Server switcher
-    // =====================================================================
-    // Cập nhật tên các server button theo danh sách server KKPHIM
-    function updateServerButtons() {
-        const vidsrcBtn = document.getElementById('srv-btn-vidsrc');
+        // =====================================================================
+        //  Server switcher
+        // =====================================================================
+        // Cập nhật tên các server button theo danh sách server KKPHIM
+        function updateServerButtons() {
+            const vidsrcBtn = document.getElementById('srv-btn-vidsrc');
 
-        if (!kkphimFound || kkphimServers.length === 0) {
-            // Không có KKPHIM → ẩn hết KK buttons, hiện vidsrc
-            for (let i = 0; i < 3; i++) {
+            if (!kkphimFound || kkphimServers.length === 0) {
+                // Không có KKPHIM → ẩn hết KK buttons, hiện vidsrc
+                for (let i = 0; i < 3; i++) {
+                    const btn = document.getElementById('srv-btn-' + i);
+                    if (btn) btn.style.display = 'none';
+                }
+                if (vidsrcBtn) vidsrcBtn.style.display = '';
+                return;
+            }
+
+            // Có KKPHIM → hiện/ẩn đúng số server, ẩn vidsrc
+            kkphimServers.forEach((sv, i) => {
+                const btn = document.getElementById('srv-btn-' + i);
+                if (btn) {
+                    btn.style.display = '';
+                    btn.innerText = sv.server_name || ('Server ' + (i + 1));
+                }
+            });
+            for (let i = kkphimServers.length; i < 3; i++) {
                 const btn = document.getElementById('srv-btn-' + i);
                 if (btn) btn.style.display = 'none';
             }
-            if (vidsrcBtn) vidsrcBtn.style.display = '';
-            return;
+            if (vidsrcBtn) vidsrcBtn.style.display = 'none';
         }
 
-        // Có KKPHIM → hiện/ẩn đúng số server, ẩn vidsrc
-        kkphimServers.forEach((sv, i) => {
-            const btn = document.getElementById('srv-btn-' + i);
-            if (btn) {
-                btn.style.display = '';
-                btn.innerText = sv.server_name || ('Server ' + (i + 1));
-            }
-        });
-        for (let i = kkphimServers.length; i < 3; i++) {
-            const btn = document.getElementById('srv-btn-' + i);
-            if (btn) btn.style.display = 'none';
-        }
-        if (vidsrcBtn) vidsrcBtn.style.display = 'none';
-    }
-
-    // Vidsrc fallback
-    function switchServerVidsrc(btnElement) {
-        const ifr      = document.getElementById('movie-player-fallback');
-        const kkEpList = document.getElementById('kkphim-ep-list');
-        kkEpList.style.display = 'none';
-
-        const url = mediaType === 'tv'
-            ? `https://vidsrcme.ru/embed/tv?tmdb=${movieId}&season=${currentSea}&episode=${currentEp}`
-            : `https://vidsrcme.ru/embed/movie?tmdb=${movieId}`;
-
-        ifr.style.display = 'block';
-        ifr.src = url;
-        setKKStatus('⚠️ Đang dùng VidSrc (không có Vietsub).');
-        document.querySelectorAll('.srv-btn').forEach(b => b.classList.remove('active'));
-        if (btnElement) btnElement.classList.add('active');
-    }
-
-    // serverIndex: 0-based index của kkphimServers
-    function switchServer(serverIndex, btnElement) {
-        const ifr      = document.getElementById('movie-player-fallback');
-        const kkEpList = document.getElementById('kkphim-ep-list');
-        let url = '';
-
-        if (kkphimFound && kkphimServers.length > serverIndex) {
-            if (mediaType === 'tv') {
-                renderKKPhimEpList(serverIndex);
-                url = getKKPhimEmbed(currentKKEpIndex, serverIndex) || '';
-            } else {
-                kkEpList.style.display = 'none';
-                url = getKKPhimEmbed(0, serverIndex) || '';
-            }
-            if (!url) setKKStatus('⚠️ Server này không có link, thử server khác.');
-        } else {
-            // Không đủ server KKPHIM → fallback vidsrc
+        // Vidsrc fallback
+        function switchServerVidsrc(btnElement) {
+            const ifr = document.getElementById('movie-player-fallback');
+            const kkEpList = document.getElementById('kkphim-ep-list');
             kkEpList.style.display = 'none';
-            const vidsrcBtn = document.getElementById('srv-btn-vidsrc');
-            if (vidsrcBtn) vidsrcBtn.style.display = '';
-            switchServerVidsrc(vidsrcBtn);
-            return;
+
+            const url = mediaType === 'tv'
+                ? `https://vidsrcme.ru/embed/tv?tmdb=${movieId}&season=${currentSea}&episode=${currentEp}`
+                : `https://vidsrcme.ru/embed/movie?tmdb=${movieId}`;
+
+            ifr.style.display = 'block';
+            ifr.src = url;
+            setKKStatus('⚠️ Đang dùng VidSrc (không có Vietsub).');
+            document.querySelectorAll('.srv-btn').forEach(b => b.classList.remove('active'));
+            if (btnElement) btnElement.classList.add('active');
         }
 
-        ifr.style.display = 'block';
-        ifr.src = url;
+        // serverIndex: 0-based index của kkphimServers
+        function switchServer(serverIndex, btnElement) {
+            const ifr = document.getElementById('movie-player-fallback');
+            const kkEpList = document.getElementById('kkphim-ep-list');
+            let url = '';
 
-        document.querySelectorAll('.srv-btn').forEach(b => b.classList.remove('active'));
-        if (btnElement) btnElement.classList.add('active');
-    }
+            if (kkphimFound && kkphimServers.length > serverIndex) {
+                if (mediaType === 'tv') {
+                    renderKKPhimEpList(serverIndex);
+                    url = getKKPhimEmbed(currentKKEpIndex, serverIndex) || '';
+                } else {
+                    kkEpList.style.display = 'none';
+                    url = getKKPhimEmbed(0, serverIndex) || '';
+                }
+                if (!url) setKKStatus('⚠️ Server này không có link, thử server khác.');
+            } else {
+                // Không đủ server KKPHIM → fallback vidsrc
+                kkEpList.style.display = 'none';
+                const vidsrcBtn = document.getElementById('srv-btn-vidsrc');
+                if (vidsrcBtn) vidsrcBtn.style.display = '';
+                switchServerVidsrc(vidsrcBtn);
+                return;
+            }
 
-    // =====================================================================
-    //  Play Now button
-    // =====================================================================
-    document.getElementById('btn-play-now').onclick = () => {
-        if (mediaType === 'tv') {
-            playKKEpFromCard(0);
-        } else {
-            document.getElementById('hero-overlay').style.display = 'none';
-            document.getElementById('embed-container').style.display = 'block';
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            switchServer(0, document.querySelector('.srv-btn'));
+            ifr.style.display = 'block';
+            ifr.src = url;
+
+            document.querySelectorAll('.srv-btn').forEach(b => b.classList.remove('active'));
+            if (btnElement) btnElement.classList.add('active');
         }
-    };
 
-    // =====================================================================
-    //  Photos
-    // =====================================================================
-    function renderPhotos(backdrops) {
-        const el = document.getElementById('photo-list');
-        if (!backdrops.length) { el.innerHTML = '<p>Không có ảnh.</p>'; return; }
-        el.innerHTML = backdrops.slice(0, 910).map(img => `
+        // =====================================================================
+        //  Play Now button
+        // =====================================================================
+        document.getElementById('btn-play-now').onclick = () => {
+            if (mediaType === 'tv') {
+                playKKEpFromCard(0);
+            } else {
+                document.getElementById('hero-overlay').style.display = 'none';
+                document.getElementById('embed-container').style.display = 'block';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                switchServer(0, document.querySelector('.srv-btn'));
+            }
+        };
+
+        // =====================================================================
+        //  Photos
+        // =====================================================================
+        function renderPhotos(backdrops) {
+            const el = document.getElementById('photo-list');
+            if (!backdrops.length) { el.innerHTML = '<p>Không có ảnh.</p>'; return; }
+            el.innerHTML = backdrops.slice(0, 910).map(img => `
             <div onclick="openFullPhoto('${IMG_URL}${img.file_path}')" class="photo-item">
                 <img src="https://image.tmdb.org/t/p/w500${img.file_path}">
             </div>`).join('');
-    }
+        }
 
-    function openFullPhoto(src) {
-        document.getElementById('photo-modal').style.display = 'flex';
-        document.getElementById('full-photo').src = src;
-    }
+        function openFullPhoto(src) {
+            document.getElementById('photo-modal').style.display = 'flex';
+            document.getElementById('full-photo').src = src;
+        }
 
-    fetchMovieDetails();
-</script>
-</script>
+        fetchMovieDetails();
+    </script>
+    </script>
 </body>
+
 </html>
