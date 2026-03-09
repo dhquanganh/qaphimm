@@ -172,9 +172,19 @@
     }
 
     async function renderMovieDetails(movie) {
+        switch(movieId){
+            case "63926":
+                movie.name = "One Punch Man";
+                break;
+            case "372058":
+                movie.title = "Tên cậu là gì";
+                break;
+            case "76479":
+                movie.name = "Siêu anh hùng phá hoại";
+                break;
+        }   
         const title = movie.title || movie.name || movie.original_title || movie.original_name;
         const year  = (movie.release_date || movie.first_air_date || 'N/A').split('-')[0];
-
         document.getElementById('movie-hero').style.backgroundImage = `url(${IMG_URL}${movie.backdrop_path})`;
         document.getElementById('det-title').innerText      = title;
         document.getElementById('det-title-body').innerText = title;

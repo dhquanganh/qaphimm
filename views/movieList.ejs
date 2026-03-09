@@ -46,7 +46,7 @@
         movies.forEach(movie => {
             const card = document.createElement('div');
             card.className = 'movie-card';
-            card.onclick = () => window.open(`/movie/${movie.title}?id=${movie.id}&type=movie`, '_blank');
+            card.onclick = () => window.open(`/movie?id=${movie.id}&type=movie`, '_blank');
 
             card.innerHTML = `
             <div class="rating-badge"><i class="fas fa-star"></i> ${movie.vote_average.toFixed(1)}</div>

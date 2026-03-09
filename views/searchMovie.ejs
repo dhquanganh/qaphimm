@@ -139,7 +139,7 @@
             const year = item.release_date ? item.release_date.split('-')[0] : (item.first_air_date ? item.first_air_date.split('-')[0] : 'N/A');
 
             return `
-                <div class="dropdown-item" onclick="window.location.href='/movie/${item.title || item.name}?id=${item.id}&type=${type}'">
+                <div class="dropdown-item" onclick="window.location.href='/movie?id=${item.id}&type=${type}'">
                     <img src="${item.poster_path ? IMG_URL + item.poster_path : 'placeholder.jpg'}" alt="${title}">
                     <div class="dropdown-item-info">
                         <h4>${title}</h4>

@@ -47,7 +47,7 @@
 
                 // Cấu trúc card phim
                 movieEl.innerHTML = `
-                <a style="text-decoration: none; color: white;" href="movie/${movie.title || movie.name}?id=${movie.id}&type=${movie.title ? 'movie' : 'tv'}">
+                <a style="text-decoration: none; color: white;" href="movie?id=${movie.id}&type=${movie.title ? 'movie' : 'tv'}">
                     <img src="${IMG_URL + movie.poster_path}" alt="${movie.title || movie.name}">
                 <div class="card-info">
                     <p class="movie-title">${movie.title || movie.name}</p>
@@ -85,7 +85,7 @@
                         <h1>${movie.title || movie.name}</h1>
                         <p>${movie.overview.substring(0, 180)}...</p>
                         <div class="hero-buttons">
-                            <a style="text-decoration: none;" href="movie/${movie.title || movie.name}?id=${movie.id}">
+                            <a style="text-decoration: none;" href="movie?id=${movie.id}">
                                 <button class="btn-play"><i class="fas fa-play"></i> Xem ngay</button>
                             </a>
                             <button class="btn-info"><i class="fas fa-plus"></i> Danh sách</button>
